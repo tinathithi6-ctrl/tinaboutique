@@ -1,0 +1,331 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "shop": "Boutique",
+    "about": "À Propos",
+    "contact": "Contact"
+  },
+  "header": {
+    "admin": "Panneau Admin"
+  },
+  "toast": {
+    "signOut": {
+      "title": "Déconnexion réussie",
+      "description": "À bientôt !"
+    }
+  },
+  "hero": {
+    "subtitle": "Nouvelle Collection",
+    "title": "Le Style New-Yorkais",
+    "description": "Découvrez les dernières tendances directement inspirées des rues de New York. Une mode audacieuse et moderne pour un style inégalé.",
+    "shopButton": "Découvrir la collection"
+  },
+  "product": {
+    "title": "Page Produit",
+    "comingSoon": "Détails du produit à venir...",
+    "addToBag": "Ajouter au panier",
+    "newBadge": "Nouveau",
+    "other": "Autre",
+    "quantity": "Quantité",
+    "addedToBag": "Ajouté au panier !"
+  },
+  "collections": {
+    "title": "Nos Collections",
+    "subtitle": "Conçues pour impressionner",
+    "viewAll": "Voir tout",
+    "noProducts": "Aucun produit trouvé pour le moment."
+  },
+  "categories": {
+    "title": "Acheter par Catégorie",
+    "subtitle": "L'essentiel de votre garde-robe",
+    "description": "Explorez nos catégories pour trouver les pièces parfaites qui complèteront votre style unique.",
+    "discover": "Découvrir",
+    "defaultDescription": "Collections exclusives",
+    "noCategories": "Aucune catégorie à afficher pour le moment."
+  },
+  "features": {
+    "quality": {
+      "title": "Qualité Exceptionnelle",
+      "description": "Des matériaux haut de gamme et une confection soignée pour des pièces qui durent."
+    },
+    "shipping": {
+      "title": "Livraison Rapide",
+      "description": "Recevez vos articles préférés directement chez vous, rapidement et en toute sécurité."
+    },
+    "returns": {
+      "title": "Retours Faciles",
+      "description": "Votre satisfaction est notre priorité. Profitez de retours simples et sans tracas."
+    },
+    "support": {
+      "title": "Support Client 24/7",
+      "description": "Notre équipe est toujours disponible pour répondre à vos questions et vous aider."
+    }
+  },
+  "testimonials": {
+    "subtitle": "Ce que nos clients disent",
+    "title": "Témoignages",
+    "list": [
+      {
+        "name": "Sophie Laurent",
+        "role": "Architecte",
+        "image": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80",
+        "rating": 5,
+        "text": "Des pièces exceptionnelles qui subliment ma garde-robe. La qualité est au rendez-vous et le service client est impeccable."
+      },
+      {
+        "name": "Marie Dubois",
+        "role": "Entrepreneure",
+        "image": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&q=80",
+        "rating": 5,
+        "text": "J'adore le style new-yorkais de cette boutique. Chaque achat est un coup de cœur et les compliments pleuvent !"
+      },
+      {
+        "name": "Claire Martin",
+        "role": "Avocate",
+        "image": "https://images.unsplash.com/photo-1489424731084-a5d8b219a5bb?w=150&q=80",
+        "rating": 5,
+        "text": "Enfin une boutique qui comprend l'élégance moderne. Parfait pour le bureau et les occasions spéciales."
+      }
+    ]
+  },
+  "newsletter": {
+    "subtitle": "Restez Connecté",
+    "title": "Rejoignez notre newsletter",
+    "description": "Soyez le premier à connaître les nouveautés, les ventes exclusives et les offres spéciales.",
+    "placeholder": "Votre adresse e-mail",
+    "button": "S'inscrire",
+    "success": "Merci pour votre inscription !"
+  },
+  "about": {
+    "subtitle": "Notre Histoire",
+    "title": "À propos de Tina's NYC Style",
+    "description": "Fondée avec une passion pour la mode et un amour pour l'énergie de New York, notre mission est d'apporter un style sophistiqué et accessible à tous.",
+    "mission": {
+      "title": "Notre Mission",
+      "description": "Rendre la mode de luxe accessible, en offrant des pièces de haute qualité qui inspirent confiance et individualité, tout en maintenant un engagement envers des pratiques éthiques."
+    },
+    "values": {
+      "title": "Nos Valeurs",
+      "description": "Nous croyons en la créativité, la qualité et la satisfaction du client. Chaque pièce est sélectionnée avec soin pour refléter notre engagement envers l'excellence et l'intégrité."
+    }
+  },
+  "footer": {
+    "description": "Le style new-yorkais à votre portée. Des pièces uniques pour une élégance moderne et audacieuse.",
+    "quickLinks": "Liens Rapides",
+    "help": "Aide",
+    "contact": "Contact",
+    "shipping": "Livraison",
+    "returns": "Retours",
+    "faq": "FAQ",
+    "terms": "Conditions d'utilisation",
+    "rights": "Tous droits réservés.",
+    "privacy": "Politique de confidentialité",
+    "address": "123 Fifth Avenue<br />New York, NY 10001",
+    "phone": "+33 1 23 45 67 89",
+    "email": "contact@tina-nyc.com"
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion",
+      "description": "Connectez-vous pour accéder à votre compte",
+      "button": "Se connecter",
+      "switch": "Pas encore de compte ? S'inscrire"
+    },
+    "signup": {
+      "title": "Créer un compte",
+      "description": "Inscrivez-vous pour commencer vos achats",
+      "button": "S'inscrire",
+      "switch": "Déjà un compte ? Se connecter"
+    },
+    "labels": {
+      "fullName": "Nom complet *",
+      "phone": "Téléphone",
+      "email": "Email *",
+      "password": "Mot de passe *"
+    },
+    "loading": "Chargement...",
+    "zod": {
+      "invalidEmail": "Email invalide",
+      "passwordLength": "Le mot de passe doit contenir au moins 6 caractères",
+      "fullNameLength": "Le nom doit contenir au moins 2 caractères"
+    },
+    "toast": {
+      "login": {
+        "success": {
+          "title": "Connexion réussie",
+          "description": "Bienvenue !"
+        },
+        "error": {
+          "title": "Erreur de connexion",
+          "description": "Email ou mot de passe incorrect"
+        }
+      },
+      "signup": {
+        "success": {
+          "title": "Inscription réussie",
+          "description": "Vous pouvez maintenant vous connecter"
+        },
+        "error": {
+          "title": "Erreur d'inscription",
+          "description": "Cet email est déjà utilisé"
+        }
+      },
+      "validation": {
+        "title": "Erreur de validation"
+      },
+      "genericError": {
+        "title": "Erreur"
+      }
+    }
+  },
+  "profile": {
+    "title": "Mon Profil",
+    "description": "Gérez vos informations personnelles et votre adresse de livraison",
+    "labels": {
+      "email": "Email",
+      "fullName": "Nom complet",
+      "phone": "Téléphone"
+    },
+    "shippingAddress": {
+      "title": "Adresse de livraison",
+      "street": "Rue",
+      "city": "Ville",
+      "postalCode": "Code postal",
+      "country": "Pays"
+    },
+    "buttons": {
+      "save": "Enregistrer",
+      "saving": "Enregistrement..."
+    },
+    "toast": {
+      "loadError": {
+        "title": "Erreur",
+        "description": "Impossible de charger le profil"
+      },
+      "saveSuccess": {
+        "title": "Succès",
+        "description": "Profil mis à jour"
+      },
+      "saveError": {
+        "title": "Erreur",
+        "description": "Impossible de sauvegarder le profil"
+      }
+    }
+  },
+  "admin": {
+    "title": "Panneau d'administration",
+    "description": "Gérez votre boutique, vos commandes et vos utilisateurs.",
+    "tabs": {
+      "dashboard": "Tableau de bord",
+      "products": "Produits",
+      "categories": "Catégories",
+      "orders": "Commandes",
+      "users": "Utilisateurs"
+    },
+    "products": {
+      "title": "Gérer les Produits",
+      "add": "Ajouter un produit",
+      "edit": "Modifier le produit",
+      "updated": "Produit mis à jour avec succès",
+      "created": "Produit créé avec succès",
+      "deleted": "Produit supprimé avec succès",
+      "error": "Une erreur est survenue",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer ce produit ?",
+      "name": "Nom",
+      "slug": "Slug",
+      "description": "Description",
+      "price": "Prix",
+      "stock": "Stock",
+      "category": "Catégorie",
+      "selectCategory": "Sélectionner une catégorie",
+      "image": "URL de l'image",
+    "imageFile": "Fichier image",
+    "uploading": "Téléversement...",
+    "preview": "Aperçu",
+    "imageHeader": "Image",
+      "active": "Actif"
+    },
+    "categories": {
+      "title": "Gérer les Catégories",
+      "add": "Ajouter une catégorie",
+      "edit": "Modifier la catégorie",
+      "updated": "Catégorie mise à jour avec succès",
+      "created": "Catégorie créée avec succès",
+      "deleted": "Catégorie supprimée avec succès",
+      "error": "Une erreur est survenue",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette catégorie ?",
+      "name": "Nom",
+      "slug": "Slug",
+      "description": "Description",
+      "image": "URL de l'image"
+    },
+    "orders": {
+      "title": "Gérer les Commandes",
+      "error": "Une erreur est survenue lors de la récupération des commandes",
+      "statusUpdated": "Statut de la commande mis à jour",
+      "id": "ID Commande",
+      "customer": "Client",
+      "total": "Total",
+      "status": "Statut",
+      "date": "Date",
+      "pending": "En attente",
+      "processing": "En traitement",
+      "shipped": "Expédiée",
+      "delivered": "Livrée",
+      "cancelled": "Annulée"
+    },
+    "users": {
+      "title": "Gérer les Utilisateurs",
+      "error": "Une erreur est survenue lors de la récupération des utilisateurs",
+      "roleUpdated": "Rôle de l'utilisateur mis à jour",
+      "name": "Nom",
+      "email": "Email",
+      "phone": "Téléphone",
+      "role": "Rôle",
+      "joined": "Inscrit le",
+      "userRole": "Utilisateur",
+      "adminRole": "Admin"
+    },
+    "dashboard": {
+      "totalRevenue": "Revenu Total",
+      "totalOrders": "Commandes",
+      "totalCustomers": "Clients",
+      "totalProducts": "Produits",
+      "loading": "Chargement...",
+      "salesChartTitle": "Ventes des 30 derniers jours",
+      "salesLast30Days": "Basé sur les commandes livrées"
+    },
+    "buttons": {
+      "signOut": "Déconnexion"
+    }
+  },
+  "common": {
+    "loading": "Chargement...",
+    "update": "Mettre à jour",
+    "create": "Créer",
+    "actions": "Actions"
+  },
+  "shop": {
+    "title": "Boutique",
+    "comingSoon": "Catalogue des produits à venir...",
+    "filterByCategory": "Filtrer par catégorie",
+    "allCategories": "Toutes les catégories",
+    "sortBy": "Trier par",
+    "sort": {
+      "default": "Pertinence",
+      "priceAsc": "Prix : Croissant",
+      "priceDesc": "Prix : Décroissant"
+    },
+    "noProducts": "Aucun produit ne correspond à votre sélection."
+  },
+  "product": {
+    "title": "Page Produit",
+    "comingSoon": "Détails du produit à venir...",
+    "addToBag": "Ajouter au panier",
+    "newBadge": "Nouveau"
+  },
+  "cart": {
+    "title": "Panier",
+    "comingSoon": "Contenu du panier à venir..."
+  }
+}
