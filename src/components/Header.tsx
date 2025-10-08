@@ -7,7 +7,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
-import logo from "../../image/LOGO.jpg";
+import logo from "../../image/LOGO.png";
 
 const Header = () => {
   const { t } = useTranslation();
@@ -50,11 +50,11 @@ const Header = () => {
           : "bg-transparent"
       }`}
     >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20">
+      <div className="container mx-auto px-7">
+        <div className="flex items-center justify-between h-40">
           {/* Logo */}
           <Link to="/" className="flex items-center hover:scale-105 transition-transform duration-300">
-            <img src={logo} alt="Boutique Tina la New-Yorkaise" className="h-12 w-auto" />
+            <img src={logo} alt="Boutique Tina la New-Yorkaise" className="h-40 w-40 rounded-full object-cover shadow-sm" />
           </Link>
 
           {/* Desktop Navigation */}
