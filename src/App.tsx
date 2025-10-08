@@ -17,6 +17,7 @@ import Admin from "./pages/Admin";
 import Shop from "./pages/Shop";
 import Product from "./pages/Product";
 import NotFound from "./pages/NotFound";
+import Chatbot from "./components/Chatbot";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,6 +65,7 @@ function App() {
                     <Route path="/product/:slug" element={<Product />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  <Chatbot />
                 </BrowserRouter>
               </TooltipProvider>
             </CartProvider>
