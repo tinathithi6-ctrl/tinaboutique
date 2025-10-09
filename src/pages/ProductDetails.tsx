@@ -1,0 +1,277 @@
+import Header from "@/components/Header";
+import Footer from "@/components/Footer";
+import ProductGallery from "@/components/boutique/ProductGallery";
+import ProductInfo from "@/components/boutique/ProductInfo";
+import ProductTabs from "@/components/boutique/ProductTabs";
+import { ChevronRight, ShoppingCart, Heart, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import { useCart } from '@/contexts/CartContext';
+import { toast } from 'react-toastify';
+
+const ProductDetails = () => {
+  const { addToCart } = useCart();
+  // Données du produit (à remplacer par vos vraies données)
+  const product = {
+    id: 'prod-001', // Ajout d'un ID pour le produit
+    name: 'Robe Élégante en Soie Premium',
+    category: 'Mode Femme',
+    price: 189.99,
+    oldPrice: 239.99,
+    rating: 4.5,
+    reviewCount: 127,
+    description: 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.',
+    inStock: true,
+    stockCount: 18,
+    images: [
+      '/assets/img/product/product-details-6.webp',
+      '/assets/img/product/product-details-7.webp',
+      '/assets/img/product/product-details-8.webp',
+      '/assets/img/product/product-details-4.webp',
+      '/assets/img/product/product-details-5.webp',
+      '/assets/img/product/product-details-3.webp'
+    ],
+    colors: [
+      { name: 'Noir Minuit', value: 'black', gradient: 'linear-gradient(135deg, #1a1a1a, #000)' },
+      { name: 'Blanc Perle', value: 'white', gradient: 'linear-gradient(135deg, #f8f9fa, #e9ecef)' },
+      { name: 'Bleu Océan', value: 'blue', gradient: 'linear-gradient(135deg, #0066cc, #004499)' },
+      { name: 'Vert Forêt', value: 'green', gradient: 'linear-gradient(135deg, #28a745, #155724)' }
+    ],
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    specifications: [
+      { label: 'Matière', value: '100% Soie' },
+      { label: 'Coupe', value: 'Ajustée' },
+      { label: 'Longueur', value: 'Mi-longue' },
+      { label: 'Entretien', value: 'Nettoyage à sec' },
+      { label: 'Origine', value: 'Fabriqué en Italie' },
+      { label: 'Référence', value: 'TN-2024-001' }
+    ],
+    reviews: [
+      {
+        id: '1',
+        author: 'Marie Dubois',
+        rating: 5,
+        date: '15 Sept 2024',
+        comment: 'Absolument magnifique ! La qualité est exceptionnelle et la coupe est parfaite. Je recommande vivement.',
+        verified: true
+      },
+      {
+        id: '2',
+        author: 'Sophie Martin',
+        rating: 4,
+        date: '10 Sept 2024',
+        comment: 'Très belle robe, conforme à la description. Juste un peu longue pour moi mais rien qu\'une retouche ne puisse arranger.',
+        verified: true
+      },
+      {
+        id: '3',
+        author: 'Isabelle Laurent',
+        rating: 5,
+        date: '5 Sept 2024',
+        comment: 'Coup de cœur ! La soie est d\'une qualité incroyable et le tombé est parfait. Je vais certainement en commander d\'autres couleurs.',
+        verified: true
+      }
+    ]
+  };
+
+  // Produits similaires
+  const relatedProducts = [
+    {
+      id: '1',
+      name: 'Robe Cocktail Élégante',
+      price: 149.99,
+      oldPrice: 199.99,
+      image: '/assets/img/product/product-1.webp',
+      rating: 5
+    },
+    {
+      id: '2',
+      name: 'Robe Longue Soirée',
+      price: 229.99,
+      image: '/assets/img/product/product-2.webp',
+      rating: 4
+    },
+    {
+      id: '3',
+      name: 'Robe Casual Chic',
+      price: 89.99,
+      image: '/assets/img/product/product-3.webp',
+      rating: 5
+    },
+    {
+      id: '4',
+      name: 'Robe d\'Été Légère',
+      price: 79.99,
+      oldPrice: 99.99,
+      image: '/assets/img/product/product-4.webp',
+      rating: 4
+    }
+  ];
+
+  const renderStars = (rating: number) => (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <svg
+          key={star}
+          className={`w-4 h-4 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`}
+          viewBox="0 0 20 20"
+        >
+          <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+        </svg>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      
+      {/* Breadcrumb */}
+      <div className="bg-white border-b border-gray-200 py-4">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2 lg:mb-0">
+              Détails du Produit
+            </h1>
+            <nav className="flex items-center text-sm">
+              <Link to="/" className="text-gray-600 hover:text-gold transition-colors">
+                Accueil
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400" />
+              <Link to="/category" className="text-gray-600 hover:text-gold transition-colors">
+                Catégorie
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400" />
+              <span className="text-gray-900 font-medium">Produit</span>
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      {/* Product Section */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+          {/* Gallery */}
+          <div>
+            <ProductGallery images={product.images} productName={product.name} />
+          </div>
+
+          {/* Product Info */}
+          <div>
+            <ProductInfo
+              name={product.name}
+              category={product.category}
+              price={product.price}
+              oldPrice={product.oldPrice}
+              rating={product.rating}
+              reviewCount={product.reviewCount}
+              description={product.description}
+              inStock={product.inStock}
+              stockCount={product.stockCount}
+              colors={product.colors}
+              sizes={product.sizes}
+              onAddToCart={(quantity, color, size) => {
+                addToCart({
+                  id: product.id,
+                  name: product.name,
+                  price: product.price,
+                  image_url: product.images[0]
+                }, quantity);
+                toast.success(`${quantity} x ${product.name} ajouté au panier !`);
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <ProductTabs
+          description={product.description}
+          specifications={product.specifications}
+          reviews={product.reviews}
+        />
+
+        {/* Related Products */}
+        <div className="mt-16">
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">Produits Similaires</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {relatedProducts.map((relatedProduct) => (
+              <div
+                key={relatedProduct.id}
+                className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
+              >
+                <Link to={`/product/${relatedProduct.id}`}>
+                  <div className="aspect-[3/4] overflow-hidden rounded-t-xl relative">
+                    <img
+                      src={relatedProduct.image}
+                      alt={relatedProduct.name}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                    {relatedProduct.oldPrice && (
+                      <span className="absolute top-3 left-3 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                        PROMO
+                      </span>
+                    )}
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gold hover:text-white transition-colors">
+                        <Heart className="w-5 h-5" />
+                      </button>
+                      <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gold hover:text-white transition-colors">
+                        <Eye className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+                </Link>
+                <div className="p-4">
+                  <Link to={`/product/${relatedProduct.id}`}>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-gold transition-colors line-clamp-2">
+                      {relatedProduct.name}
+                    </h3>
+                  </Link>
+                  <div className="mb-3">{renderStars(relatedProduct.rating)}</div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="text-2xl font-bold text-gray-900">{relatedProduct.price}€</span>
+                    {relatedProduct.oldPrice && (
+                      <span className="text-lg text-gray-400 line-through">{relatedProduct.oldPrice}€</span>
+                    )}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      addToCart({
+                        id: relatedProduct.id,
+                        name: relatedProduct.name,
+                        price: relatedProduct.price,
+                        image_url: relatedProduct.image
+                      });
+                      toast.success(`${relatedProduct.name} ajouté au panier !`);
+                    }}
+                    className="w-full py-3 bg-gold text-white rounded-lg font-semibold hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    Ajouter au Panier
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <Footer />
+      
+      <ToastContainer
+        position="bottom-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+      />
+    </div>
+  );
+};
+
+export default ProductDetails;

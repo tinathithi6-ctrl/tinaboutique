@@ -16,6 +16,11 @@ import Profile from "./pages/Profile";
 import Admin from "./pages/Admin";
 import Shop from "./pages/Shop";
 import Product from "./pages/Product";
+import Boutique from "./pages/Boutique";
+import Category from "./pages/Category";
+import ProductDetails from "./pages/ProductDetails";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import Chatbot from "./components/Chatbot";
 
@@ -62,6 +67,11 @@ function App() {
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/admin" element={<Admin />} />
                     <Route path="/shop" element={<Shop />} />
+                    <Route path="/boutique" element={<Boutique />} />
+                    <Route path="/category" element={<Category />} />
+                    <Route path="/product-details" element={<ProductDetails />} />
+                    <Route path="/cart" element={<Cart />} />
+                    <Route path="/checkout" element={<Checkout />} />
                     <Route path="/product/:slug" element={<Product />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>

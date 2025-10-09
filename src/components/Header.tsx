@@ -37,7 +37,11 @@ const Header = () => {
 
   const navLinks = [
     { name: t("nav.home"), to: "/" },
-    { name: t("nav.shop"), to: "/shop" },
+    { name: "Boutique", to: "/boutique" },
+    { name: "Catégories", to: "/category" },
+    { name: "Produit", to: "/product-details" },
+    { name: "Panier", to: "/cart" },
+    { name: "Paiement", to: "/checkout" },
     { name: t("nav.about"), anchor: "about" },
     { name: t("nav.contact"), anchor: "contact" },
   ];
@@ -46,22 +50,28 @@ const Header = () => {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 animate-fade-in ${
         isScrolled
-          ? "bg-white shadow-md"
-          : "bg-transparent"
+          ? "bg-white shadow-lg"
+          : "bg-gradient-to-b from-black/30 to-transparent"
       }`}
     >
       <div className="container mx-auto px-7">
         <div className="flex items-center justify-between h-40">
           {/* Logo */}
           <Link to="/" className="flex items-center hover:scale-105 transition-transform duration-300">
-            <img src={logo} alt="Boutique Tina la New-Yorkaise" className="h-40 w-40 rounded-full object-cover shadow-sm" />
+            <img 
+              src={logo} 
+              alt="Boutique Tina la New-Yorkaise" 
+              className={`h-40 w-40 rounded-full object-cover transition-all duration-300 ${
+                isScrolled ? "shadow-md" : "shadow-2xl ring-4 ring-white/20"
+              }`} 
+            />
           </Link>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => {
               const linkClasses = `font-heading font-medium transition-all duration-300 relative after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-gold after:transition-all after:duration-300 hover:after:w-full hover:scale-105 ${
-                isScrolled ? "text-primary" : "text-white"
+                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
               }`;
 
               if (link.to) {
@@ -88,7 +98,7 @@ const Header = () => {
             <LanguageSwitcher />
             <button
               className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                isScrolled ? "text-primary" : "text-white"
+                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
               }`}
             >
               <Search className="h-5 w-5" />
@@ -99,7 +109,7 @@ const Header = () => {
                   <Link to="/admin">
                     <button
                       className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                        isScrolled ? "text-primary" : "text-white"
+                        isScrolled ? "text-primary" : "text-white drop-shadow-lg"
                       }`}
                       title={t("header.admin")}
                     >
@@ -110,7 +120,7 @@ const Header = () => {
                 <Link to="/profile">
                   <button
                     className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                      isScrolled ? "text-primary" : "text-white"
+                      isScrolled ? "text-primary" : "text-white drop-shadow-lg"
                     }`}
                   >
                     <User className="h-5 w-5" />
@@ -119,7 +129,7 @@ const Header = () => {
                 <button
                   onClick={handleSignOut}
                   className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                    isScrolled ? "text-primary" : "text-white"
+                    isScrolled ? "text-primary" : "text-white drop-shadow-lg"
                   }`}
                 >
                   <LogOut className="h-5 w-5" />
@@ -129,7 +139,7 @@ const Header = () => {
               <Link to="/auth">
                 <button
                   className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                    isScrolled ? "text-primary" : "text-white"
+                    isScrolled ? "text-primary" : "text-white drop-shadow-lg"
                   }`}
                 >
                   <User className="h-5 w-5" />
@@ -138,7 +148,7 @@ const Header = () => {
             )}
             <button
               className={`transition-all duration-300 hover:scale-110 relative ${
-                isScrolled ? "text-primary" : "text-white"
+                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
               }`}
             >
               <ShoppingBag className="h-5 w-5" />
@@ -151,7 +161,7 @@ const Header = () => {
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className={`md:hidden transition-colors duration-300 ${
-                isScrolled ? "text-primary" : "text-white"
+                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
               }`}
             >
               {isMobileMenuOpen ? (
