@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "@/integrations/supabase/client";
 import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,17 +18,13 @@ export const AdminCategories = () => {
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [formData, setFormData] = useState({
     name: "",
-    slug: "",
     description: "",
-    image_url: "",
   });
 
   const resetForm = () => {
     setFormData({
       name: "",
-      slug: "",
       description: "",
-      image_url: "",
     });
     setEditingCategory(null);
   };
@@ -39,29 +34,24 @@ export const AdminCategories = () => {
 
     const categoryData = {
       name: formData.name,
-      slug: formData.slug,
       description: formData.description || null,
-      image_url: formData.image_url || null,
     };
 
     try {
-      if (editingCategory) {
-        const { error } = await supabase
-          .from("categories")
-          .update(categoryData)
-          .eq("id", editingCategory.id);
+      const url = editingCategory
+        ? `http://localhost:3001/api/admin/categories/${editingCategory.id}`
+        : 'http://localhost:3001/api/admin/categories';
+      const method = editingCategory ? 'PUT' : 'POST';
 
-        if (error) throw error;
-        toast.success(t("admin.categories.updated"));
-      } else {
-        const { error } = await supabase
-          .from("categories")
-          .insert([categoryData]);
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(categoryData),
+      });
 
-        if (error) throw error;
-        toast.success(t("admin.categories.created"));
-      }
+      if (!response.ok) throw new Error('Failed to save category');
 
+      toast.success(editingCategory ? t("admin.categories.updated") : t("admin.categories.created"));
       setIsDialogOpen(false);
       resetForm();
       refetch();
@@ -75,9 +65,7 @@ export const AdminCategories = () => {
     setEditingCategory(category);
     setFormData({
       name: category.name,
-      slug: category.slug,
       description: category.description || "",
-      image_url: category.image_url || "",
     });
     setIsDialogOpen(true);
   };
@@ -86,12 +74,10 @@ export const AdminCategories = () => {
     if (!confirm(t("admin.categories.confirmDelete"))) return;
 
     try {
-      const { error } = await supabase
-        .from("categories")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      const response = await fetch(`http://localhost:3001/api/admin/categories/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete category');
       toast.success(t("admin.categories.deleted"));
       refetch();
     } catch (error) {
@@ -135,30 +121,12 @@ export const AdminCategories = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="slug">{t("admin.categories.slug")}</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  required
-                />
-              </div>
-              <div>
                 <Label htmlFor="description">{t("admin.categories.description")}</Label>
                 <Textarea
                   id="description"
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                />
-              </div>
-              <div>
-                <Label htmlFor="image">{t("admin.categories.image")}</Label>
-                <Input
-                  id="image"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://..."
                 />
               </div>
               <Button type="submit" className="w-full">
@@ -173,7 +141,6 @@ export const AdminCategories = () => {
           <TableHeader>
             <TableRow>
               <TableHead>{t("admin.categories.name")}</TableHead>
-              <TableHead>{t("admin.categories.slug")}</TableHead>
               <TableHead>{t("admin.categories.description")}</TableHead>
               <TableHead className="text-right">{t("common.actions")}</TableHead>
             </TableRow>
@@ -182,7 +149,6 @@ export const AdminCategories = () => {
             {categories?.map((category) => (
               <TableRow key={category.id}>
                 <TableCell className="font-medium">{category.name}</TableCell>
-                <TableCell>{category.slug}</TableCell>
                 <TableCell>{category.description}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button

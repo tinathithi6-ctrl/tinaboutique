@@ -26,6 +26,7 @@ import Chatbot from "./components/Chatbot";
 import CategoryPage from "./pages/CategoryPage";
 import Home from "./pages/Home";
 import ProductAdmin from "./pages/admin/ProductAdmin";
+import Search from "./pages/Search";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,7 +76,8 @@ function App() {
                     <Route path="/boutique" element={<Boutique />} />
                     <Route path="/category" element={<Category />} />
                     <Route path="/category/:name" element={<CategoryPage />} />
-                    <Route path="/product-details" element={<ProductDetails />} />
+                    <Route path="/product/:id" element={<ProductDetails />} />
+                    <Route path="/search" element={<Search />} />
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/checkout" element={<Checkout />} />
                     <Route path="/product/:slug" element={<Product />} />

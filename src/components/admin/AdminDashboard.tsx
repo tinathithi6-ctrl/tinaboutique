@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, ShoppingCart, Users, Package } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -27,45 +26,22 @@ export const AdminDashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [ordersData, customersData, productsData] = await Promise.all([
-          supabase.from("orders").select("total_amount, status, created_at"),
-          supabase.from("profiles").select("id", { count: "exact", head: true }),
-          supabase.from("products").select("id", { count: "exact", head: true }),
+        const [salesSummary, monthlySales] = await Promise.all([
+          fetch('http://localhost:3001/api/admin/reports/sales-summary').then(res => res.json()),
+          fetch('http://localhost:3001/api/admin/reports/monthly-sales').then(res => res.json()),
         ]);
 
-        if (ordersData.error) throw ordersData.error;
-        if (customersData.error) throw customersData.error;
-        if (productsData.error) throw productsData.error;
-
-        const orders = ordersData.data || [];
-
-        const deliveredOrders = orders.filter(order => order.status === 'delivered');
-
-        const totalRevenue = deliveredOrders.reduce((sum, order) => sum + order.total_amount, 0);
-
         setStats({
-          totalRevenue: totalRevenue,
-          totalOrders: orders.length,
-          totalCustomers: customersData.count || 0,
-          totalProducts: productsData.count || 0,
+          totalRevenue: salesSummary.total_revenue.total_eur,
+          totalOrders: salesSummary.total_orders,
+          totalCustomers: 0, // TODO: Add API for customers count
+          totalProducts: 0, // TODO: Add API for products count
         });
 
-        // Process data for chart
-        const last30Days = subDays(new Date(), 30);
-        const recentOrders = deliveredOrders.filter(order => new Date(order.created_at) > last30Days);
-        
-        const salesByDay = recentOrders.reduce((acc, order) => {
-          const day = format(new Date(order.created_at), 'MMM dd');
-          if (!acc[day]) {
-            acc[day] = 0;
-          }
-          acc[day] += order.total_amount;
-          return acc;
-        }, {} as Record<string, number>);
-
-        const formattedChartData = Object.keys(salesByDay).map(day => ({
-          name: day,
-          total: salesByDay[day],
+        // Process monthly sales data for chart
+        const formattedChartData = monthlySales.map((item: any) => ({
+          name: item.month,
+          total: item.revenue_eur,
         }));
 
         setChartData(formattedChartData);

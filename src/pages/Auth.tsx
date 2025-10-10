@@ -109,12 +109,31 @@ const Auth = () => {
         throw new Error(data.error || 'Erreur lors de l\'inscription.');
       }
 
-      toast({
-        title: t("auth.toast.signup.success.title"),
-        description: t("auth.toast.signup.success.description"),
+      // Auto-login after successful signup
+      const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: validated.email, password: validated.password }),
       });
-      setIsLogin(true);
-      setFormData({ email: validated.email, password: "", fullName: "", phone: "" }); // Garder l'email
+
+      const loginData = await loginResponse.json();
+
+      if (loginResponse.ok) {
+        setAuthData(loginData.user, loginData.token);
+        toast({
+          title: t("auth.toast.signup.success.title"),
+          description: t("auth.toast.signup.success.description"),
+        });
+        navigate(from, { replace: true });
+      } else {
+        // If auto-login fails, just show success and switch to login
+        toast({
+          title: t("auth.toast.signup.success.title"),
+          description: t("auth.toast.signup.success.description"),
+        });
+        setIsLogin(true);
+        setFormData({ email: validated.email, password: "", fullName: "", phone: "" });
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue.';
       if (error instanceof z.ZodError) {

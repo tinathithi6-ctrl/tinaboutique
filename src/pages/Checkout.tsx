@@ -83,7 +83,7 @@ const Checkout = () => {
         name: item.name,
         quantity: item.quantity,
         price: item.price,
-        image_url: item.image_url,
+        image: item.image,
       })),
     };
 
@@ -523,7 +523,7 @@ const Checkout = () => {
                   <div key={item.id} className="flex gap-3">
                     <div className="relative">
                       <img
-                        src={item.image_url}
+                        src={item.image}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />

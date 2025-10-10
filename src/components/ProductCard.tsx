@@ -8,25 +8,55 @@ interface ProductCardProps {
   name: string;
   category: string;
   price: string;
+  onAddToCart?: () => void;
 }
 
-const ProductCard = ({ image, name, category, price }: ProductCardProps) => {
+const ProductCard = ({ image, name, category, price, onAddToCart }: ProductCardProps) => {
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
+  const [imageError, setImageError] = useState(false);
+
+  // Fonction pour obtenir l'URL complète de l'image
+  const getImageUrl = (imagePath: string) => {
+    if (imagePath.startsWith('http')) {
+      return imagePath;
+    }
+    // Pour les images uploadées localement
+    if (imagePath.startsWith('/uploads/')) {
+      return `http://localhost:3001${imagePath}`;
+    }
+    // Fallback
+    return imagePath;
+  };
 
   return (
     <div className="group relative bg-card rounded-lg overflow-hidden shadow-elegant hover:shadow-gold transition-smooth animate-fade-in">
       {/* Image Container */}
-      <div className="relative aspect-[3/4] overflow-hidden bg-secondary">
-        <img
-          src={image}
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-        />
+      <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
+        {!imageError ? (
+          <img
+            src={getImageUrl(image)}
+            alt={name}
+            className="w-full h-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <div className="text-center text-muted-foreground">
+              <div className="text-4xl mb-2">📷</div>
+              <div className="text-sm">Image non disponible</div>
+            </div>
+          </div>
+        )}
         
         {/* Overlay Actions */}
         <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 transition-smooth flex items-center justify-center gap-3">
-          <Button variant="gold" size="sm" className="shadow-lg">
+          <Button
+            variant="gold"
+            size="sm"
+            className="shadow-lg"
+            onClick={onAddToCart}
+          >
             <ShoppingBag className="h-4 w-4 mr-2" />
             {t("product.addToBag")}
           </Button>

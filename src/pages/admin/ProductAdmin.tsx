@@ -140,7 +140,7 @@ const ProductAdmin: React.FC = () => {
                   </div>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
-                  <p className="text-gray-900 whitespace-no-wrap">{product.price_eur.toFixed(2)} €</p>
+                  <p className="text-gray-900 whitespace-no-wrap">{Number(product.price_eur || 0).toFixed(2)} €</p>
                 </td>
                 <td className="px-5 py-5 border-b border-gray-200 bg-white text-sm">
                   <p className="text-gray-900 whitespace-no-wrap">{product.stock_quantity}</p>

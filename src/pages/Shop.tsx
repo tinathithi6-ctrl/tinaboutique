@@ -5,6 +5,9 @@ import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "react-toastify";
 
 // Définition des types pour les données de l'API
 interface ApiProduct {
@@ -27,6 +30,8 @@ interface ApiCategory {
 
 const Shop = () => {
   const { t } = useTranslation();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -34,35 +39,37 @@ const Shop = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("default");
 
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/products');
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/categories');
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
+
   useEffect(() => {
-    const fetchProducts = async () => {
+    // Chargement initial
+    const loadData = async () => {
       setProductsLoading(true);
-      try {
-        const response = await fetch('http://localhost:3001/api/products');
-        const data = await response.json();
-        setProducts(data);
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
-      } finally {
-        setProductsLoading(false);
-      }
-    };
-
-    const fetchCategories = async () => {
       setCategoriesLoading(true);
-      try {
-        const response = await fetch('http://localhost:3001/api/categories');
-        const data = await response.json();
-        setCategories(data);
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-      } finally {
-        setCategoriesLoading(false);
-      }
+      await Promise.all([fetchProducts(), fetchCategories()]);
+      setProductsLoading(false);
+      setCategoriesLoading(false);
     };
 
-    fetchProducts();
-    fetchCategories();
+    loadData();
   }, []);
 
 
@@ -97,6 +104,20 @@ const Shop = () => {
 
     return filtered;
   }, [products, selectedCategory, sortOrder]);
+
+  const handleAddToCart = (product: ApiProduct) => {
+    if (!user) {
+      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
+      return;
+    }
+    addToCart({
+      id: String(product.id),
+      name: product.name,
+      price: Number(product.price_eur),
+      image: product.images?.[0] || '/placeholder.svg'
+    }, 1);
+    toast.success(`${product.name} ajouté au panier !`);
+  };
 
   const isLoading = productsLoading || categoriesLoading;
 
@@ -140,11 +161,11 @@ const Shop = () => {
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
           {isLoading ? (
             Array.from({ length: 8 }).map((_, index) => (
-              <div key={index} className="space-y-4">
-                <Skeleton className="h-[400px] w-full rounded-lg" />
+              <div key={`skeleton-${index}`} className="space-y-4">
+                <Skeleton className="aspect-[4/5] w-full rounded-lg" />
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
               </div>
@@ -152,17 +173,18 @@ const Shop = () => {
           ) : filteredAndSortedProducts.length > 0 ? (
             filteredAndSortedProducts.map((product) => (
               <ProductCard
-                key={product.id}
-                id={product.id.toString()}
+                key={`product-${product.id}`}
                 image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
                 category={getCategoryName(product.category_id)}
-                price={product.price_eur.toFixed(0)}
+                price={Number(product.price_eur).toFixed(0)}
+                onAddToCart={() => handleAddToCart(product)}
               />
             ))
           ) : (
-            <div className="col-span-full text-center py-12">
-              <p className="text-muted-foreground">{t("shop.noProducts")}</p>
+            <div key="no-products" className="col-span-full text-center py-12">
+              <p className="text-muted-foreground text-lg">{t("shop.noProducts")}</p>
+              <p className="text-muted-foreground text-sm mt-2">Les produits ajoutés par l'administrateur apparaîtront ici automatiquement.</p>
             </div>
           )}
         </div>

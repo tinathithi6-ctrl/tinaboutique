@@ -24,6 +24,10 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
+      if (!supabase) {
+        throw new Error("Chatbot not available");
+      }
+
       const { data, error } = await supabase.functions.invoke("chatbot-handler", {
         body: { messages: newMessages },
       });
@@ -33,7 +37,7 @@ const Chatbot = () => {
       const botMessage = { from: "bot", text: data.reply };
       setMessages([...newMessages, botMessage]);
     } catch (error: any) {
-      const errorMessage = { from: "bot", text: "Désolé, une erreur s'est produite. Veuillez réessayer." };
+      const errorMessage = { from: "bot", text: "Désolé, le service de chat n'est pas disponible pour le moment." };
       setMessages([...newMessages, errorMessage]);
       console.error("Error invoking Supabase function:", error);
     } finally {

@@ -74,6 +74,16 @@ CREATE TABLE orders (
     customer_info JSONB
 );
 
+-- Table pour les paniers persistants
+CREATE TABLE cart_items (
+    id SERIAL PRIMARY KEY,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES products(id) ON DELETE CASCADE,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    added_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(user_id, product_id)
+);
+
 -- Table pour les articles de commande (mise à jour)
 CREATE TABLE order_items (
     id SERIAL PRIMARY KEY,

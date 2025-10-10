@@ -37,19 +37,36 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Vérifier si les tables existent avant de faire les requêtes
+        const tableCheck = await fetch('http://localhost:3001/api/admin/orders?limit=1');
+        const tablesExist = tableCheck.ok;
+
+        if (!tablesExist) {
+          // Si les tables n'existent pas, afficher des données vides
+          setSummary({
+            total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' },
+            total_orders: 0,
+            total_products_sold: 0
+          });
+          setMonthlyData([]);
+          setLoyalCustomers([]);
+          setLoading(false);
+          return;
+        }
+
         const [summaryRes, monthlyRes, loyalCustomersRes] = await Promise.all([
           fetch('http://localhost:3001/api/admin/reports/sales-summary'),
           fetch('http://localhost:3001/api/admin/reports/monthly-sales'),
           fetch('http://localhost:3001/api/admin/reports/loyal-customers'),
         ]);
 
-        if (!summaryRes.ok || !monthlyRes.ok || !loyalCustomersRes.ok) {
-          throw new Error('Erreur lors de la récupération des données du tableau de bord');
-        }
-
-        const summaryData = await summaryRes.json();
-        const monthlyData = await monthlyRes.json();
-        const loyalCustomersData = await loyalCustomersRes.json();
+        const summaryData = summaryRes.ok ? await summaryRes.json() : {
+          total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' },
+          total_orders: 0,
+          total_products_sold: 0
+        };
+        const monthlyData = monthlyRes.ok ? await monthlyRes.json() : [];
+        const loyalCustomersData = loyalCustomersRes.ok ? await loyalCustomersRes.json() : [];
 
         setSummary(summaryData);
         setMonthlyData(monthlyData);

@@ -4,7 +4,7 @@ import ProductGallery from "@/components/boutique/ProductGallery";
 import ProductInfo from "@/components/boutique/ProductInfo";
 import ProductTabs from "@/components/boutique/ProductTabs";
 import { ChevronRight, ShoppingCart, Heart, Eye } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useCart } from '@/contexts/CartContext';
@@ -28,6 +28,7 @@ interface ApiProduct {
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { addToCart } = useCart();
   const { user } = useAuth();
   const [product, setProduct] = useState<ApiProduct | null>(null);
@@ -54,11 +55,10 @@ const ProductDetails = () => {
     fetchProduct();
   }, [id]);
 
-  const handleAddToCart = (productData: { id: string; name: string; price: number; image_url: string; }, quantity = 1) => {
+  const handleAddToCart = (productData: { id: string; name: string; price: number; image: string; }, quantity = 1) => {
     if (!user) {
       toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
-      // Optionnel: rediriger vers la page de connexion
-      // navigate('/login');
+      navigate('/auth');
       return;
     }
     addToCart(productData, quantity);
@@ -195,7 +195,7 @@ const ProductDetails = () => {
                   id: String(product.id),
                   name: product.name,
                   price: product.price_eur,
-                  image_url: product.images[0]
+                  image: product.images[0]
                 }, quantity);
               }}
             />
@@ -259,7 +259,7 @@ const ProductDetails = () => {
                         id: relatedProduct.id,
                         name: relatedProduct.name,
                         price: relatedProduct.price,
-                        image_url: relatedProduct.image
+                        image: relatedProduct.image
                       });
                     }}
                     className="w-full py-3 bg-gold text-white rounded-lg font-semibold hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"

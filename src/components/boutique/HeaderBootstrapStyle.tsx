@@ -161,8 +161,8 @@ const HeaderBootstrapStyle = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/product-details" className="text-sm font-medium text-gray-700 hover:text-gold transition-colors">
-                  Produit
+                <Link to="/shop" className="text-sm font-medium text-gray-700 hover:text-gold transition-colors">
+                  Produits
                 </Link>
               </li>
               <li>
@@ -218,11 +218,11 @@ const HeaderBootstrapStyle = () => {
                 </li>
                 <li>
                   <Link
-                    to="/product-details"
+                    to="/shop"
                     onClick={() => setIsMenuOpen(false)}
                     className="block text-sm font-medium text-gray-700 hover:text-gold py-2"
                   >
-                    Produit
+                    Boutique
                   </Link>
                 </li>
                 <li>

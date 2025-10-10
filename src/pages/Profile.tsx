@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -28,7 +27,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
+  const { user, token, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<ProfileData>({
@@ -50,37 +49,39 @@ const Profile = () => {
 
   useEffect(() => {
     const fetchProfile = async () => {
-      if (!user) return;
+      if (!user || !token) return;
 
       try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .single();
+        const response = await fetch('http://localhost:3001/api/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
 
-        if (error) throw error;
+        if (!response.ok) throw new Error('Failed to fetch profile');
 
-        if (data) {
-          setProfileData({
-            full_name: data.full_name || "",
-            phone: data.phone || "",
-            shipping_address: typeof data.shipping_address === 'object' && data.shipping_address !== null
-              ? {
-                  street: (data.shipping_address as any).street || "",
-                  city: (data.shipping_address as any).city || "",
-                  postal_code: (data.shipping_address as any).postal_code || "",
-                  country: (data.shipping_address as any).country || "",
-                }
-              : {
-                  street: "",
-                  city: "",
-                  postal_code: "",
-                  country: "",
-                },
-          });
-        }
+        const data = await response.json();
+
+        setProfileData({
+          full_name: data.full_name || "",
+          phone: data.phone || "",
+          shipping_address: typeof data.shipping_address === 'object' && data.shipping_address !== null
+            ? {
+                street: (data.shipping_address as any).street || "",
+                city: (data.shipping_address as any).city || "",
+                postal_code: (data.shipping_address as any).postal_code || "",
+                country: (data.shipping_address as any).country || "",
+              }
+            : {
+                street: "",
+                city: "",
+                postal_code: "",
+                country: "",
+              },
+        });
       } catch (error) {
+        console.error('Erreur lors du chargement du profil:', error);
         toast({
           title: t("profile.toast.loadError.title"),
           description: t("profile.toast.loadError.description"),
@@ -95,26 +96,31 @@ const Profile = () => {
   }, [user, toast]);
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user || !token) return;
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
+      const response = await fetch('http://localhost:3001/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           full_name: profileData.full_name,
           phone: profileData.phone,
           shipping_address: profileData.shipping_address,
         })
-        .eq("id", user.id);
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to update profile');
 
       toast({
         title: t("profile.toast.saveSuccess.title"),
         description: t("profile.toast.saveSuccess.description"),
       });
     } catch (error) {
+      console.error('Erreur lors de la sauvegarde du profil:', error);
       toast({
         title: t("profile.toast.saveError.title"),
         description: t("profile.toast.saveError.description"),

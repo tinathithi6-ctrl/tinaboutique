@@ -47,10 +47,10 @@ const Collections = () => {
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <ProductCard
-                  image={product.image_url || "/placeholder.svg"}
+                  image={product.images?.[0] || "/placeholder.svg"}
                   name={product.name}
                   category={getCategoryName(product.category_id)}
-                  price={product.price.toFixed(0)}
+                  price={Number(product.price_eur || 0).toFixed(0)}
                 />
               </div>
             ))

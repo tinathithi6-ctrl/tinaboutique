@@ -1,20 +1,23 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 
 interface CartItem {
   id: string;
   name: string;
   price: number;
-  image_url: string;
+  image: string;
   quantity: number;
+  product_id?: number;
 }
 
 interface CartContextType {
   cartItems: CartItem[];
-  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
-  removeFromCart: (itemId: string) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => Promise<void>;
+  removeFromCart: (itemId: string) => Promise<void>;
+  updateQuantity: (itemId: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   cartCount: number;
+  loading: boolean;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -32,54 +35,198 @@ interface CartProviderProps {
 }
 
 export const CartProvider = ({ children }: CartProviderProps) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const localData = localStorage.getItem('cart');
-      return localData ? JSON.parse(localData) : [];
-    } catch (error) {
-      return [];
+  const { user, token } = useAuth();
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  // Charger le panier depuis la DB
+  const loadCart = async () => {
+    if (!user || !token) {
+      // Utilisateur non connecté - utiliser localStorage
+      try {
+        const localData = localStorage.getItem('cart');
+        setCartItems(localData ? JSON.parse(localData) : []);
+      } catch (error) {
+        setCartItems([]);
+      }
+      return;
     }
-  });
+
+    try {
+      const response = await fetch('http://localhost:3001/api/cart', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const formattedItems = data.map((item: any) => ({
+          id: item.product_id.toString(),
+          name: item.name,
+          price: item.price_eur,
+          image: item.image_url,
+          quantity: item.quantity,
+          product_id: item.product_id
+        }));
+        setCartItems(formattedItems);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement du panier:', error);
+    }
+  };
+
+  // Sauvegarder dans localStorage pour les utilisateurs non connectés
+  const saveToLocalStorage = (items: CartItem[]) => {
+    if (!user) {
+      localStorage.setItem('cart', JSON.stringify(items));
+    }
+  };
 
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cartItems));
-  }, [cartItems]);
+    loadCart();
+  }, [user, token]);
+
+  useEffect(() => {
+    saveToLocalStorage(cartItems);
+  }, [cartItems, user]);
 
   const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
 
-  const addToCart = (item: Omit<CartItem, 'quantity'>, quantity = 1) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(i => i.id === item.id);
-      if (existingItem) {
-        return prevItems.map(i =>
-          i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
-        );
-      } else {
-        return [...prevItems, { ...item, quantity }];
+  const addToCart = async (item: Omit<CartItem, 'quantity'>, quantity = 1) => {
+    if (!user || !token) {
+      // Utilisateur non connecté - localStorage seulement
+      setCartItems(prevItems => {
+        const existingItem = prevItems.find(i => i.id === item.id);
+        if (existingItem) {
+          return prevItems.map(i =>
+            i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
+          );
+        } else {
+          return [...prevItems, { ...item, quantity }];
+        }
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3001/api/cart', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          product_id: parseInt(item.id),
+          quantity
+        })
+      });
+
+      if (response.ok) {
+        await loadCart(); // Recharger le panier
       }
-    });
-  };
-
-  const removeFromCart = (itemId: string) => {
-    setCartItems(prevItems => prevItems.filter(i => i.id !== itemId));
-  };
-
-  const updateQuantity = (itemId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(itemId);
-    } else {
-      setCartItems(prevItems =>
-        prevItems.map(i => (i.id === itemId ? { ...i, quantity } : i))
-      );
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout au panier:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const clearCart = () => {
-    setCartItems([]);
+  const removeFromCart = async (itemId: string) => {
+    if (!user || !token) {
+      setCartItems(prevItems => prevItems.filter(i => i.id !== itemId));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:3001/api/cart/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        await loadCart();
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression du panier:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateQuantity = async (itemId: string, quantity: number) => {
+    if (!user || !token) {
+      if (quantity <= 0) {
+        await removeFromCart(itemId);
+      } else {
+        setCartItems(prevItems =>
+          prevItems.map(i => (i.id === itemId ? { ...i, quantity } : i))
+        );
+      }
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch(`http://localhost:3001/api/cart/${itemId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ quantity })
+      });
+
+      if (response.ok) {
+        await loadCart();
+      }
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du panier:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearCart = async () => {
+    if (!user || !token) {
+      setCartItems([]);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:3001/api/cart', {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setCartItems([]);
+      }
+    } catch (error) {
+      console.error('Erreur lors du vidage du panier:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, cartCount }}>
+    <CartContext.Provider value={{
+      cartItems,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      clearCart,
+      cartCount,
+      loading
+    }}>
       {children}
     </CartContext.Provider>
   );

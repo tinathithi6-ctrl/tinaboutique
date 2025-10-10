@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -16,27 +15,10 @@ export const AdminUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*");
-
-      if (profilesError) throw profilesError;
-
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
-
-      if (rolesError) throw rolesError;
-
-      const usersWithRoles = profilesData.map((profile) => {
-        const userRole = rolesData.find((r) => r.user_id === profile.id);
-        return {
-          ...profile,
-          role: (userRole?.role || "user") as "admin" | "user",
-        };
-      });
-
-      setUsers(usersWithRoles);
+      const response = await fetch('http://localhost:3001/api/admin/users');
+      if (!response.ok) throw new Error('Failed to fetch users');
+      const data = await response.json();
+      setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
       toast.error(t("admin.users.error"));
@@ -51,27 +33,12 @@ export const AdminUsers = () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      const { data: existingRole } = await supabase
-        .from("user_roles")
-        .select("id")
-        .eq("user_id", userId)
-        .single();
-
-      if (existingRole) {
-        const { error } = await supabase
-          .from("user_roles")
-          .update({ role: newRole as "admin" | "user" })
-          .eq("user_id", userId);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("user_roles")
-          .insert([{ user_id: userId, role: newRole as "admin" | "user" }]);
-
-        if (error) throw error;
-      }
-
+      const response = await fetch(`http://localhost:3001/api/admin/users/${userId}/role`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: newRole }),
+      });
+      if (!response.ok) throw new Error('Failed to update user role');
       toast.success(t("admin.users.roleUpdated"));
       fetchUsers();
     } catch (error) {
@@ -95,7 +62,6 @@ export const AdminUsers = () => {
             <TableRow>
               <TableHead>{t("admin.users.name")}</TableHead>
               <TableHead>{t("admin.users.email")}</TableHead>
-              <TableHead>{t("admin.users.phone")}</TableHead>
               <TableHead>{t("admin.users.role")}</TableHead>
               <TableHead>{t("admin.users.joined")}</TableHead>
             </TableRow>
@@ -105,7 +71,6 @@ export const AdminUsers = () => {
               <TableRow key={user.id}>
                 <TableCell className="font-medium">{user.full_name || "-"}</TableCell>
                 <TableCell>{user.email}</TableCell>
-                <TableCell>{user.phone || "-"}</TableCell>
                 <TableCell>
                   <Select
                     value={user.role}

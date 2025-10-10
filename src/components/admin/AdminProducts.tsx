@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { supabase } from "@/integrations/supabase/client";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,6 @@ export const AdminProducts = () => {
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    slug: "",
     description: "",
     price: "",
     stock: "",
@@ -37,7 +35,6 @@ export const AdminProducts = () => {
   const resetForm = () => {
     setFormData({
       name: "",
-      slug: "",
       description: "",
       price: "",
       stock: "",
@@ -53,52 +50,33 @@ export const AdminProducts = () => {
     e.preventDefault();
     setUploading(true);
 
-    let imageUrl = formData.image_url;
-
     try {
-      if (selectedFile) {
-        const fileName = `${Date.now()}_${selectedFile.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("productimg")
-          .upload(fileName, selectedFile);
-
-        if (uploadError) throw uploadError;
-
-        const { data: urlData } = supabase.storage
-          .from("productimg")
-          .getPublicUrl(uploadData.path);
-        
-        imageUrl = urlData.publicUrl;
-      }
-
       const productData = {
         name: formData.name,
-        slug: formData.slug,
         description: formData.description || null,
-        price: parseFloat(formData.price),
-        stock: parseInt(formData.stock),
         category_id: formData.category_id || null,
-        image_url: imageUrl || null,
+        price_eur: parseFloat(formData.price),
+        price_usd: parseFloat(formData.price) * 0.85, // Simple conversion, adjust as needed
+        price_cdf: parseFloat(formData.price) * 2800, // Simple conversion
+        stock_quantity: parseInt(formData.stock),
+        images: formData.image_url ? [formData.image_url] : null,
         is_active: formData.is_active,
       };
 
-      if (editingProduct) {
-        const { error } = await supabase
-          .from("products")
-          .update(productData)
-          .eq("id", editingProduct.id);
+      const url = editingProduct
+        ? `http://localhost:3001/api/admin/products/${editingProduct.id}`
+        : 'http://localhost:3001/api/admin/products';
+      const method = editingProduct ? 'PUT' : 'POST';
 
-        if (error) throw error;
-        toast.success(t("admin.products.updated"));
-      } else {
-        const { error } = await supabase
-          .from("products")
-          .insert([productData]);
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(productData),
+      });
 
-        if (error) throw error;
-        toast.success(t("admin.products.created"));
-      }
+      if (!response.ok) throw new Error('Failed to save product');
 
+      toast.success(editingProduct ? t("admin.products.updated") : t("admin.products.created"));
       setIsDialogOpen(false);
       resetForm();
       refetch();
@@ -114,12 +92,11 @@ export const AdminProducts = () => {
     setEditingProduct(product);
     setFormData({
       name: product.name,
-      slug: product.slug,
       description: product.description || "",
-      price: product.price.toString(),
-      stock: product.stock.toString(),
+      price: product.price_eur.toString(),
+      stock: product.stock_quantity.toString(),
       category_id: product.category_id || "",
-      image_url: product.image_url || "",
+      image_url: product.images ? product.images[0] : "",
       is_active: product.is_active,
     });
     setSelectedFile(null);
@@ -130,12 +107,10 @@ export const AdminProducts = () => {
     if (!confirm(t("admin.products.confirmDelete"))) return;
 
     try {
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
+      const response = await fetch(`http://localhost:3001/api/admin/products/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
       toast.success(t("admin.products.deleted"));
       refetch();
     } catch (error) {
@@ -169,14 +144,9 @@ export const AdminProducts = () => {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Form fields remain the same until the image field */}
               <div>
                 <Label htmlFor="name">{t("admin.products.name")}</Label>
                 <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
-              </div>
-              <div>
-                <Label htmlFor="slug">{t("admin.products.slug")}</Label>
-                <Input id="slug" value={formData.slug} onChange={(e) => setFormData({ ...formData, slug: e.target.value })} required />
               </div>
               <div>
                 <Label htmlFor="description">{t("admin.products.description")}</Label>
@@ -206,8 +176,8 @@ export const AdminProducts = () => {
                 </Select>
               </div>
               
-              {/* Image Upload Field */}
-              <div>
+              {/* Image Upload Field - Temporarily disabled */}
+              {/* <div>
                 <Label htmlFor="imageFile">{t("admin.products.imageFile")}</Label>
                 <Input
                   id="imageFile"
@@ -216,16 +186,16 @@ export const AdminProducts = () => {
                   onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
                   disabled={uploading}
                 />
-              </div>
+              </div> */}
 
               {/* Image Preview */}
-              {(formData.image_url || selectedFile) && (
+              {formData.image_url && (
                 <div className="my-4">
                   <Label>{t("admin.products.preview")}</Label>
                   <div className="mt-2 w-32 h-32 border rounded-md flex items-center justify-center overflow-hidden">
-                    <img 
-                      src={selectedFile ? URL.createObjectURL(selectedFile) : formData.image_url}
-                      alt={t("admin.products.preview")} 
+                    <img
+                      src={formData.image_url}
+                      alt={t("admin.products.preview")}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -265,11 +235,11 @@ export const AdminProducts = () => {
             {products?.map((product) => (
               <TableRow key={product.id}>
                 <TableCell>
-                  {product.image_url && <img src={product.image_url} alt={product.name} className="h-10 w-10 object-cover rounded-md" />}
+                  {product.images && product.images[0] && <img src={product.images[0]} alt={product.name} className="h-10 w-10 object-cover rounded-md" />}
                 </TableCell>
                 <TableCell className="font-medium">{product.name}</TableCell>
-                <TableCell>${product.price}</TableCell>
-                <TableCell>{product.stock}</TableCell>
+                <TableCell>€{product.price_eur}</TableCell>
+                <TableCell>{product.stock_quantity}</TableCell>
                 <TableCell>{product.is_active ? "✓" : "✗"}</TableCell>
                 <TableCell className="text-right space-x-2">
                   <Button variant="ghost" size="sm" onClick={() => handleEdit(product)}><Pencil className="h-4 w-4" /></Button>

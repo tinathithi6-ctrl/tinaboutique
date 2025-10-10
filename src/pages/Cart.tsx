@@ -100,7 +100,7 @@ const Cart = () => {
                         {/* Product Info */}
                         <div className="lg:col-span-6 flex gap-4">
                           <img
-                            src={item.image_url}
+                            src={item.image}
                             alt={item.name}
                             className="w-24 h-24 object-cover rounded-lg"
                           />

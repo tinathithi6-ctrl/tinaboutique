@@ -14,6 +14,7 @@ interface ProductInfoProps {
   stockCount?: number;
   colors?: Array<{ name: string; value: string; gradient: string }>;
   sizes?: string[];
+  onAddToCart?: (quantity: number) => void;
 }
 
 const ProductInfo = ({
@@ -27,7 +28,8 @@ const ProductInfo = ({
   inStock,
   stockCount,
   colors = [],
-  sizes = []
+  sizes = [],
+  onAddToCart
 }: ProductInfoProps) => {
   const [selectedColor, setSelectedColor] = useState(colors[0]?.name || '');
   const [selectedSize, setSelectedSize] = useState(sizes[0] || '');
@@ -44,7 +46,11 @@ const ProductInfo = ({
   };
 
   const handleAddToCart = () => {
-    toast.success(`${name} ajouté au panier !`);
+    if (onAddToCart) {
+      onAddToCart(quantity);
+    } else {
+      toast.success(`${name} ajouté au panier !`);
+    }
   };
 
   const handleBuyNow = () => {

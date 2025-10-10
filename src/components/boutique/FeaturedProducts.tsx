@@ -1,6 +1,9 @@
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useCart } from '@/contexts/CartContext';
 
 interface Product {
   id: number;
@@ -11,6 +14,10 @@ interface Product {
 }
 
 const FeaturedProducts = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,6 +42,30 @@ const FeaturedProducts = () => {
 
     fetchProducts();
   }, []);
+
+  const handleAddToCart = (product: Product) => {
+    if (!user) {
+      toast({
+        title: "Connexion requise",
+        description: "Veuillez vous connecter pour ajouter des articles au panier.",
+        variant: "destructive",
+      });
+      navigate('/auth');
+      return;
+    }
+
+    addToCart({
+      id: product.id.toString(),
+      name: product.name,
+      price: Number(product.price_eur || 0),
+      image: product.images[0] || '/placeholder.svg',
+    }, 1);
+
+    toast({
+      title: "Produit ajouté",
+      description: `${product.name} a été ajouté à votre panier.`,
+    });
+  };
 
   const renderStars = (rating: number) => {
     return (
@@ -144,13 +175,14 @@ const FeaturedProducts = () => {
                 {/* Price */}
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl font-bold text-gray-900">
-                    {product.price_eur.toFixed(2)}€
+                    {Number(product.price_eur || 0).toFixed(2)}€
                   </span>
                   {/* La logique de l'ancien prix sera à réimplémenter */}
                 </div>
 
                 {/* Add to Cart Button */}
                 <button
+                  onClick={() => handleAddToCart(product)}
                   className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
                     hoveredProduct === product.id
                       ? 'bg-gold text-white'

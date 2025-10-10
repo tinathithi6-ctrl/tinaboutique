@@ -39,7 +39,7 @@ const Header = () => {
     { name: t("nav.home"), to: "/" },
     { name: "Boutique", to: "/boutique" },
     { name: "Catégories", to: "/category" },
-    { name: "Produit", to: "/product-details" },
+    { name: "Produits", to: "/shop" },
     { name: "Panier", to: "/cart" },
     { name: "Paiement", to: "/checkout" },
     { name: t("nav.about"), anchor: "about" },
@@ -119,11 +119,12 @@ const Header = () => {
                 )}
                 <Link to="/profile">
                   <button
-                    className={`hidden md:block transition-all duration-300 hover:scale-110 ${
+                    className={`hidden md:block transition-all duration-300 hover:scale-110 relative ${
                       isScrolled ? "text-primary" : "text-white drop-shadow-lg"
                     }`}
                   >
                     <User className="h-5 w-5" />
+                    <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                   </button>
                 </Link>
                 <button
@@ -222,8 +223,9 @@ const Header = () => {
                     </Link>
                   )}
                   <Link to="/profile">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="relative">
                       <User className="h-5 w-5" />
+                      <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                     </Button>
                   </Link>
                   <Button variant="ghost" size="icon" onClick={handleSignOut}>
