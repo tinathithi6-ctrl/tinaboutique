@@ -6,70 +6,25 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  oldPrice?: number;
-  quantity: number;
-  image: string;
-  color: string;
-  size: string;
-}
+import { useCart } from '@/contexts/CartContext';
 
 const Cart = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Robe Élégante en Soie',
-      price: 89.99,
-      quantity: 1,
-      image: '/assets/img/product/product-1.webp',
-      color: 'Noir',
-      size: 'M'
-    },
-    {
-      id: '2',
-      name: 'Ensemble Casual Chic',
-      price: 64.99,
-      oldPrice: 79.99,
-      quantity: 2,
-      image: '/assets/img/product/product-3.webp',
-      color: 'Blanc',
-      size: 'L'
-    },
-    {
-      id: '3',
-      name: 'Veste en Jean Moderne',
-      price: 49.99,
-      quantity: 1,
-      image: '/assets/img/product/product-5.webp',
-      color: 'Bleu',
-      size: 'S'
-    }
-  ]);
-
+  const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart();
   const [couponCode, setCouponCode] = useState('');
   const [shippingMethod, setShippingMethod] = useState('standard');
 
-  const updateQuantity = (id: string, delta: number) => {
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  const handleUpdateQuantity = (id: string, currentQuantity: number, delta: number) => {
+    const newQuantity = currentQuantity + delta;
+    updateQuantity(id, newQuantity);
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const handleRemoveItem = (id: string) => {
+    removeFromCart(id);
     toast.success('Produit retiré du panier');
   };
 
-  const clearCart = () => {
-    setCartItems([]);
+  const handleClearCart = () => {
+    clearCart();
     toast.info('Panier vidé');
   };
 
@@ -82,9 +37,9 @@ const Cart = () => {
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shippingCost = shippingMethod === 'standard' ? 4.99 : shippingMethod === 'express' ? 12.99 : 0;
+  const shippingCost = subtotal > 0 ? (shippingMethod === 'standard' ? 4.99 : shippingMethod === 'express' ? 12.99 : 0) : 0;
   const tax = subtotal * 0.1;
-  const discount = 0;
+  const discount = 0; // La logique de réduction sera ajoutée plus tard
   const total = subtotal + shippingCost + tax - discount;
 
   return (
@@ -145,18 +100,19 @@ const Cart = () => {
                         {/* Product Info */}
                         <div className="lg:col-span-6 flex gap-4">
                           <img
-                            src={item.image}
+                            src={item.image_url}
                             alt={item.name}
                             className="w-24 h-24 object-cover rounded-lg"
                           />
                           <div className="flex-1">
                             <h3 className="font-semibold text-gray-900 mb-1">{item.name}</h3>
                             <div className="text-sm text-gray-600 space-y-1">
-                              <p>Couleur: {item.color}</p>
-                              <p>Taille: {item.size}</p>
+                              {/* Note: La couleur et la taille ne sont pas encore dans le contexte */}
+                              {/* <p>Couleur: {item.color}</p> */}
+                              {/* <p>Taille: {item.size}</p> */}
                             </div>
                             <button
-                              onClick={() => removeItem(item.id)}
+                              onClick={() => handleRemoveItem(item.id)}
                               className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
                             >
                               <Trash2 className="h-4 w-4" />
@@ -167,24 +123,21 @@ const Cart = () => {
 
                         {/* Price */}
                         <div className="lg:col-span-2 text-center">
-                          <span className="text-lg font-semibold text-gray-900">{item.price}€</span>
-                          {item.oldPrice && (
-                            <span className="block text-sm text-gray-400 line-through">{item.oldPrice}€</span>
-                          )}
+                          <span className="text-lg font-semibold text-gray-900">{item.price.toFixed(2)}€</span>
                         </div>
 
                         {/* Quantity */}
                         <div className="lg:col-span-2 flex justify-center">
                           <div className="flex items-center border-2 border-gray-300 rounded-lg">
                             <button
-                              onClick={() => updateQuantity(item.id, -1)}
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity, -1)}
                               className="p-2 hover:bg-gray-100 transition-colors"
                             >
                               <Minus className="h-4 w-4" />
                             </button>
                             <span className="px-4 py-2 font-medium">{item.quantity}</span>
                             <button
-                              onClick={() => updateQuantity(item.id, 1)}
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity, 1)}
                               className="p-2 hover:bg-gray-100 transition-colors"
                             >
                               <Plus className="h-4 w-4" />
@@ -225,7 +178,7 @@ const Cart = () => {
                     </div>
                     <div className="flex gap-2">
                       <button
-                        onClick={clearCart}
+                        onClick={handleClearCart}
                         className="px-6 py-2 border-2 border-red-500 text-red-500 rounded-lg font-semibold hover:bg-red-50 transition-colors"
                       >
                         Vider le panier
@@ -261,7 +214,7 @@ const Cart = () => {
                             onChange={(e) => setShippingMethod(e.target.value)}
                             className="text-gold focus:ring-gold"
                           />
-                          <span className="text-sm">Standard - 4.99€</span>
+                          <span className="text-sm">Standard - {subtotal > 0 ? '4.99€' : '0.00€'}</span>
                         </div>
                       </label>
                       <label className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gold transition-colors">
@@ -274,7 +227,7 @@ const Cart = () => {
                             onChange={(e) => setShippingMethod(e.target.value)}
                             className="text-gold focus:ring-gold"
                           />
-                          <span className="text-sm">Express - 12.99€</span>
+                          <span className="text-sm">Express - {subtotal > 0 ? '12.99€' : '0.00€'}</span>
                         </div>
                       </label>
                       <label className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gold transition-colors">

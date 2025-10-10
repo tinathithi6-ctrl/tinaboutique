@@ -4,78 +4,68 @@ import ProductGallery from "@/components/boutique/ProductGallery";
 import ProductInfo from "@/components/boutique/ProductInfo";
 import ProductTabs from "@/components/boutique/ProductTabs";
 import { ChevronRight, ShoppingCart, Heart, Eye } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
+import { useState, useEffect } from 'react';
+
+// Définition des types pour les données de l'API
+interface ApiProduct {
+  id: number;
+  name: string;
+  description: string;
+  category_id: number;
+  price_eur: number;
+  price_usd: number;
+  price_cdf: number;
+  stock_quantity: number;
+  images: string[];
+  is_active: boolean;
+}
 
 const ProductDetails = () => {
+  const { id } = useParams<{ id: string }>();
   const { addToCart } = useCart();
-  // Données du produit (à remplacer par vos vraies données)
-  const product = {
-    id: 'prod-001', // Ajout d'un ID pour le produit
-    name: 'Robe Élégante en Soie Premium',
-    category: 'Mode Femme',
-    price: 189.99,
-    oldPrice: 239.99,
-    rating: 4.5,
-    reviewCount: 127,
-    description: 'Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.',
-    inStock: true,
-    stockCount: 18,
-    images: [
-      '/assets/img/product/product-details-6.webp',
-      '/assets/img/product/product-details-7.webp',
-      '/assets/img/product/product-details-8.webp',
-      '/assets/img/product/product-details-4.webp',
-      '/assets/img/product/product-details-5.webp',
-      '/assets/img/product/product-details-3.webp'
-    ],
-    colors: [
-      { name: 'Noir Minuit', value: 'black', gradient: 'linear-gradient(135deg, #1a1a1a, #000)' },
-      { name: 'Blanc Perle', value: 'white', gradient: 'linear-gradient(135deg, #f8f9fa, #e9ecef)' },
-      { name: 'Bleu Océan', value: 'blue', gradient: 'linear-gradient(135deg, #0066cc, #004499)' },
-      { name: 'Vert Forêt', value: 'green', gradient: 'linear-gradient(135deg, #28a745, #155724)' }
-    ],
-    sizes: ['XS', 'S', 'M', 'L', 'XL'],
-    specifications: [
-      { label: 'Matière', value: '100% Soie' },
-      { label: 'Coupe', value: 'Ajustée' },
-      { label: 'Longueur', value: 'Mi-longue' },
-      { label: 'Entretien', value: 'Nettoyage à sec' },
-      { label: 'Origine', value: 'Fabriqué en Italie' },
-      { label: 'Référence', value: 'TN-2024-001' }
-    ],
-    reviews: [
-      {
-        id: '1',
-        author: 'Marie Dubois',
-        rating: 5,
-        date: '15 Sept 2024',
-        comment: 'Absolument magnifique ! La qualité est exceptionnelle et la coupe est parfaite. Je recommande vivement.',
-        verified: true
-      },
-      {
-        id: '2',
-        author: 'Sophie Martin',
-        rating: 4,
-        date: '10 Sept 2024',
-        comment: 'Très belle robe, conforme à la description. Juste un peu longue pour moi mais rien qu\'une retouche ne puisse arranger.',
-        verified: true
-      },
-      {
-        id: '3',
-        author: 'Isabelle Laurent',
-        rating: 5,
-        date: '5 Sept 2024',
-        comment: 'Coup de cœur ! La soie est d\'une qualité incroyable et le tombé est parfait. Je vais certainement en commander d\'autres couleurs.',
-        verified: true
+  const { user } = useAuth();
+  const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:3001/api/products/${id}`);
+        if (!response.ok) {
+          throw new Error('Produit non trouvé');
+        }
+        const data = await response.json();
+        setProduct(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      } finally {
+        setLoading(false);
       }
-    ]
+    };
+
+    fetchProduct();
+  }, [id]);
+
+  const handleAddToCart = (productData: { id: string; name: string; price: number; image_url: string; }, quantity = 1) => {
+    if (!user) {
+      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
+      // Optionnel: rediriger vers la page de connexion
+      // navigate('/login');
+      return;
+    }
+    addToCart(productData, quantity);
+    toast.success(`${quantity} x ${productData.name} ajouté au panier !`);
   };
 
-  // Produits similaires
+  // Produits similaires (pourrait être remplacé par un appel API)
   const relatedProducts = [
     {
       id: '1',
@@ -123,6 +113,35 @@ const ProductDetails = () => {
     </div>
   );
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="container mx-auto px-4 py-8 text-center">
+          <p>Chargement du produit...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !product) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="container mx-auto px-4 py-8 text-center">
+          <h2 className="text-2xl font-bold text-red-500">Erreur</h2>
+          <p>{error || 'Le produit que vous cherchez n\'existe pas.'}</p>
+          <Link to="/shop" className="mt-4 inline-block bg-blue-500 text-white px-6 py-2 rounded">
+            Retour à la boutique
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -143,7 +162,7 @@ const ProductDetails = () => {
                 Catégorie
               </Link>
               <ChevronRight className="h-4 w-4 mx-2 text-gray-400" />
-              <span className="text-gray-900 font-medium">Produit</span>
+              <span className="text-gray-900 font-medium">{product.name}</span>
             </nav>
           </div>
         </div>
@@ -161,24 +180,23 @@ const ProductDetails = () => {
           <div>
             <ProductInfo
               name={product.name}
-              category={product.category}
-              price={product.price}
-              oldPrice={product.oldPrice}
-              rating={product.rating}
-              reviewCount={product.reviewCount}
+              category={"Catégorie à définir"} // TODO: Récupérer le nom de la catégorie
+              price={product.price_eur}
+              oldPrice={undefined} // TODO: Gérer les promotions
+              rating={4.5} // Statique pour l'instant
+              reviewCount={0} // Statique pour l'instant
               description={product.description}
-              inStock={product.inStock}
-              stockCount={product.stockCount}
-              colors={product.colors}
-              sizes={product.sizes}
-              onAddToCart={(quantity, color, size) => {
-                addToCart({
-                  id: product.id,
+              inStock={product.stock_quantity > 0}
+              stockCount={product.stock_quantity}
+              colors={[]} // Statique pour l'instant
+              sizes={[]} // Statique pour l'instant
+              onAddToCart={(quantity) => {
+                handleAddToCart({
+                  id: String(product.id),
                   name: product.name,
-                  price: product.price,
+                  price: product.price_eur,
                   image_url: product.images[0]
                 }, quantity);
-                toast.success(`${quantity} x ${product.name} ajouté au panier !`);
               }}
             />
           </div>
@@ -187,8 +205,8 @@ const ProductDetails = () => {
         {/* Tabs */}
         <ProductTabs
           description={product.description}
-          specifications={product.specifications}
-          reviews={product.reviews}
+          specifications={[]} // Statique pour l'instant
+          reviews={[]} // Statique pour l'instant
         />
 
         {/* Related Products */}
@@ -237,13 +255,12 @@ const ProductDetails = () => {
                   </div>
                   <button 
                     onClick={() => {
-                      addToCart({
+                      handleAddToCart({
                         id: relatedProduct.id,
                         name: relatedProduct.name,
                         price: relatedProduct.price,
                         image_url: relatedProduct.image
                       });
-                      toast.success(`${relatedProduct.name} ajouté au panier !`);
                     }}
                     className="w-full py-3 bg-gold text-white rounded-lg font-semibold hover:bg-gold/90 transition-colors flex items-center justify-center gap-2"
                   >

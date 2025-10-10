@@ -6,8 +6,15 @@ import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { useCart } from '@/contexts/CartContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const Checkout = () => {
+  const { cartItems, clearCart } = useCart();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
@@ -36,34 +43,80 @@ const Checkout = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!agreedToTerms) {
       toast.error('Veuillez accepter les conditions générales');
       return;
     }
-    toast.success('Commande passée avec succès !');
+    if (!user) {
+      toast.error('Vous devez être connecté pour passer une commande.');
+      navigate('/login');
+      return;
+    }
+    if (cartItems.length === 0) {
+      toast.error('Votre panier est vide.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const orderData = {
+      user_id: user.id,
+      total_amount: total,
+      shipping_address: {
+        address: formData.address,
+        apartment: formData.apartment,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        country: formData.country,
+      },
+      customer_info: {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+      },
+      items: cartItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        image_url: item.image_url,
+      })),
+    };
+
+    try {
+      const response = await fetch('http://localhost:3001/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Une erreur est survenue lors de la création de la commande.');
+      }
+
+      toast.success('Commande passée avec succès !');
+      clearCart();
+      navigate('/order-confirmation', { state: { orderId: result.orderId } });
+
+    } catch (error) {
+      console.error('Erreur lors de la création de la commande:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Une erreur inconnue est survenue.';
+      toast.error(`Erreur lors de la commande: ${errorMessage}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const orderItems = [
-    {
-      id: '1',
-      name: 'Robe Élégante en Soie',
-      price: 89.99,
-      quantity: 1,
-      image: '/assets/img/product/product-1.webp'
-    },
-    {
-      id: '2',
-      name: 'Ensemble Casual Chic',
-      price: 64.99,
-      quantity: 2,
-      image: '/assets/img/product/product-3.webp'
-    }
-  ];
-
-  const subtotal = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 4.99;
+  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const shipping = subtotal > 0 ? 4.99 : 0; // Simplifié, pourrait être basé sur la méthode choisie
   const tax = subtotal * 0.1;
   const total = subtotal + shipping + tax;
 
@@ -448,9 +501,10 @@ const Checkout = () => {
                   </label>
                   <button
                     type="submit"
-                    className="w-full py-4 bg-gold text-white rounded-lg font-bold text-lg hover:bg-gold/90 transition-colors flex items-center justify-between px-6"
+                    disabled={isSubmitting || cartItems.length === 0}
+                    className="w-full py-4 bg-gold text-white rounded-lg font-bold text-lg hover:bg-gold/90 transition-colors flex items-center justify-between px-6 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
-                    <span>Passer la Commande</span>
+                    <span>{isSubmitting ? 'Traitement...' : 'Passer la Commande'}</span>
                     <span>{total.toFixed(2)}€</span>
                   </button>
                 </div>
@@ -465,11 +519,11 @@ const Checkout = () => {
 
               {/* Order Items */}
               <div className="space-y-4 mb-6 pb-6 border-b border-gray-200">
-                {orderItems.map((item) => (
+                {cartItems.map((item) => (
                   <div key={item.id} className="flex gap-3">
                     <div className="relative">
                       <img
-                        src={item.image}
+                        src={item.image_url}
                         alt={item.name}
                         className="w-16 h-16 object-cover rounded-lg"
                       />
@@ -482,7 +536,7 @@ const Checkout = () => {
                         {item.name}
                       </h4>
                       <p className="text-sm text-gray-600 mt-1">
-                        {item.price}€ × {item.quantity}
+                        {item.price.toFixed(2)}€ × {item.quantity}
                       </p>
                     </div>
                     <div className="text-right">

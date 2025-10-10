@@ -1,19 +1,27 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+
+// Définir un type plus générique pour l'utilisateur
+interface AppUser {
+  id: string;
+  email: string;
+  fullName?: string;
+  role?: string;
+}
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: AppUser | null;
+  token: string | null;
   loading: boolean;
-  signOut: () => Promise<void>;
+  setAuthData: (user: AppUser, token: string) => void;
+  signOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
-  session: null,
+  token: null,
   loading: true,
-  signOut: async () => {},
+  setAuthData: () => {},
+  signOut: () => {},
 });
 
 export const useAuth = () => {
@@ -25,36 +33,42 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    // Au chargement, essayer de récupérer les données depuis le localStorage
+    try {
+      const storedToken = localStorage.getItem('authToken');
+      const storedUser = localStorage.getItem('authUser');
+      if (storedToken && storedUser) {
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
       }
-    );
-
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    } catch (error) {
+      console.error("Impossible de charger les données d'authentification", error);
+    } finally {
       setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
   }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
+  const setAuthData = (user: AppUser, token: string) => {
+    setUser(user);
+    setToken(token);
+    localStorage.setItem('authUser', JSON.stringify(user));
+    localStorage.setItem('authToken', token);
+  };
+
+  const signOut = () => {
+    setUser(null);
+    setToken(null);
+    localStorage.removeItem('authUser');
+    localStorage.removeItem('authToken');
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={{ user, token, loading, setAuthData, signOut }}>
       {children}
     </AuthContext.Provider>
   );

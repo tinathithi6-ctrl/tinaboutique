@@ -6,11 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
-import { AdminProducts } from "@/components/admin/AdminProducts";
-import { AdminCategories } from "@/components/admin/AdminCategories";
-import { AdminOrders } from "@/components/admin/AdminOrders";
-import { AdminUsers } from "@/components/admin/AdminUsers";
+import ProductAdmin from "./admin/ProductAdmin";
+import AdminDashboard from "./admin/AdminDashboard";
 import { LayoutDashboard, Package, FolderTree, ShoppingCart, Users, LogOut } from "lucide-react";
 
 const Admin = () => {
@@ -92,19 +89,34 @@ const Admin = () => {
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">
-          <AdminProducts />
+          <ProductAdmin />
         </TabsContent>
 
         <TabsContent value="categories" className="mt-6">
-          <AdminCategories />
+          <Card>
+            <CardHeader>
+              <CardTitle>Bientôt disponible</CardTitle>
+              <CardDescription>La gestion des catégories sera bientôt disponible ici.</CardDescription>
+            </CardHeader>
+          </Card>
         </TabsContent>
 
         <TabsContent value="orders" className="mt-6">
-          <AdminOrders />
+          <Card>
+            <CardHeader>
+              <CardTitle>Bientôt disponible</CardTitle>
+              <CardDescription>La gestion des commandes sera bientôt disponible ici.</CardDescription>
+            </CardHeader>
+          </Card>
         </TabsContent>
 
         <TabsContent value="users" className="mt-6">
-          <AdminUsers />
+          <Card>
+            <CardHeader>
+              <CardTitle>Bientôt disponible</CardTitle>
+              <CardDescription>La gestion des utilisateurs sera bientôt disponible ici.</CardDescription>
+            </CardHeader>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

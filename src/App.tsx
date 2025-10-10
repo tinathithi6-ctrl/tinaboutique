@@ -23,6 +23,9 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 import NotFound from "./pages/NotFound";
 import Chatbot from "./components/Chatbot";
+import CategoryPage from "./pages/CategoryPage";
+import Home from "./pages/Home";
+import ProductAdmin from "./pages/admin/ProductAdmin";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -64,11 +67,14 @@ function App() {
                   <Routes>
                     <Route path="/" element={<Index />} />
                     <Route path="/auth" element={<Auth />} />
+                    <Route path="/login" element={<Auth />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/admin" element={<Admin />} />
+                    <Route path="/admin/products" element={<ProductAdmin />} />
                     <Route path="/shop" element={<Shop />} />
                     <Route path="/boutique" element={<Boutique />} />
                     <Route path="/category" element={<Category />} />
+                    <Route path="/category/:name" element={<CategoryPage />} />
                     <Route path="/product-details" element={<ProductDetails />} />
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/checkout" element={<Checkout />} />

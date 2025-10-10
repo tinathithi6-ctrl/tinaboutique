@@ -1,93 +1,40 @@
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Product {
-  id: string;
+  id: number;
   name: string;
-  price: number;
-  oldPrice?: number;
-  image: string;
-  badge?: 'new' | 'sale';
-  discount?: number;
-  rating: number;
+  price_eur: number;
+  images: string[];
+  // Les autres champs ne sont pas utilisés directement ici mais sont disponibles
 }
 
-const products: Product[] = [
-  {
-    id: '1',
-    name: 'Robe Élégante Manhattan',
-    price: 289,
-    oldPrice: 359,
-    image: '/assets/img/product/product-f-1.webp',
-    badge: 'sale',
-    discount: 20,
-    rating: 4.5,
-  },
-  {
-    id: '2',
-    name: 'Ensemble Chic Brooklyn',
-    price: 199,
-    image: '/assets/img/product/product-f-2.webp',
-    badge: 'new',
-    rating: 5,
-  },
-  {
-    id: '3',
-    name: 'Tailleur Queens',
-    price: 349,
-    oldPrice: 449,
-    image: '/assets/img/product/product-f-3.webp',
-    badge: 'sale',
-    discount: 22,
-    rating: 4.8,
-  },
-  {
-    id: '4',
-    name: 'Robe Cocktail Soho',
-    price: 259,
-    image: '/assets/img/product/product-f-4.webp',
-    rating: 4.7,
-  },
-  {
-    id: '5',
-    name: 'Blazer Premium',
-    price: 299,
-    oldPrice: 399,
-    image: '/assets/img/product/product-f-5.webp',
-    badge: 'sale',
-    discount: 25,
-    rating: 4.9,
-  },
-  {
-    id: '6',
-    name: 'Ensemble Casual',
-    price: 179,
-    image: '/assets/img/product/product-f-6.webp',
-    badge: 'new',
-    rating: 4.6,
-  },
-  {
-    id: '7',
-    name: 'Robe Longue Élégante',
-    price: 329,
-    image: '/assets/img/product/product-f-7.webp',
-    rating: 4.8,
-  },
-  {
-    id: '8',
-    name: 'Tenue Business',
-    price: 399,
-    oldPrice: 499,
-    image: '/assets/img/product/product-f-8.webp',
-    badge: 'sale',
-    discount: 20,
-    rating: 5,
-  },
-];
-
 const FeaturedProducts = () => {
-  const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('http://localhost:3001/api/products');
+        if (!response.ok) {
+          throw new Error('Erreur lors du chargement des produits');
+        }
+        const data = await response.json();
+        // On ne prend que les 8 premiers produits pour la page d'accueil
+        setProducts(data.slice(0, 8));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Une erreur est survenue');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const renderStars = (rating: number) => {
     return (
@@ -107,6 +54,28 @@ const FeaturedProducts = () => {
       </div>
     );
   };
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Produits en Vedette</h2>
+          <p className="text-lg text-gray-600">Chargement des produits...</p>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Produits en Vedette</h2>
+          <p className="text-lg text-red-500">{error}</p>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-16 bg-white">
@@ -132,20 +101,7 @@ const FeaturedProducts = () => {
               onMouseEnter={() => setHoveredProduct(product.id)}
               onMouseLeave={() => setHoveredProduct(null)}
             >
-              {/* Badge */}
-              {product.badge && (
-                <div className="absolute top-3 left-3 z-10">
-                  {product.badge === 'new' ? (
-                    <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                      NOUVEAU
-                    </span>
-                  ) : (
-                    <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                      -{product.discount}%
-                    </span>
-                  )}
-                </div>
-              )}
+              {/* Badge - La logique des badges sera à réimplémenter si nécessaire */}
 
               {/* Quick Actions */}
               <div
@@ -167,7 +123,7 @@ const FeaturedProducts = () => {
               <Link to={`/product/${product.id}`}>
                 <div className="aspect-[3/4] overflow-hidden rounded-t-xl">
                   <img
-                    src={product.image}
+                    src={product.images[0] || 'https://via.placeholder.com/300x400'}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   />
@@ -182,19 +138,15 @@ const FeaturedProducts = () => {
                   </h3>
                 </Link>
 
-                {/* Rating */}
-                <div className="mb-3">{renderStars(product.rating)}</div>
+                {/* Rating - Temporairement statique */}
+                <div className="mb-3">{renderStars(4.5)}</div>
 
                 {/* Price */}
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-2xl font-bold text-gray-900">
-                    {product.price}€
+                    {product.price_eur.toFixed(2)}€
                   </span>
-                  {product.oldPrice && (
-                    <span className="text-lg text-gray-400 line-through">
-                      {product.oldPrice}€
-                    </span>
-                  )}
+                  {/* La logique de l'ancien prix sera à réimplémenter */}
                 </div>
 
                 {/* Add to Cart Button */}
@@ -216,7 +168,7 @@ const FeaturedProducts = () => {
         {/* View All Button */}
         <div className="text-center mt-12" data-aos="fade-up">
           <Link
-            to="/category/robes"
+            to="/shop" // Lien vers la page boutique principale
             className="inline-block px-8 py-4 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-colors"
           >
             Voir Tous les Produits

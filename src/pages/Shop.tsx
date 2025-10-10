@@ -1,21 +1,72 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
-import { useProducts } from "@/hooks/useProducts";
-import { useCategories } from "@/hooks/useCategories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+// Définition des types pour les données de l'API
+interface ApiProduct {
+  id: number;
+  name: string;
+  description: string;
+  category_id: number;
+  price_eur: number;
+  price_usd: number;
+  price_cdf: number;
+  stock_quantity: number;
+  images: string[];
+  is_active: boolean;
+}
+
+interface ApiCategory {
+  id: number;
+  name: string;
+}
+
 const Shop = () => {
   const { t } = useTranslation();
-  const { data: products, isLoading: productsLoading } = useProducts();
-  const { data: categories, isLoading: categoriesLoading } = useCategories();
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("default");
 
-  const getCategoryName = (categoryId: string | null) => {
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setProductsLoading(true);
+      try {
+        const response = await fetch('http://localhost:3001/api/products');
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    const fetchCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const response = await fetch('http://localhost:3001/api/categories');
+        const data = await response.json();
+        setCategories(data);
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    fetchProducts();
+    fetchCategories();
+  }, []);
+
+
+  const getCategoryName = (categoryId: number | null) => {
     if (!categoryId || !categories) return t("product.other");
     const category = categories.find((cat) => cat.id === categoryId);
     return category?.name || t("product.other");
@@ -28,16 +79,16 @@ const Shop = () => {
 
     // Filtering
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(p => p.category_id === selectedCategory);
+      filtered = filtered.filter(p => p.category_id === Number(selectedCategory));
     }
 
     // Sorting
     switch (sortOrder) {
       case "price-asc":
-        filtered.sort((a, b) => a.price - b.price);
+        filtered.sort((a, b) => a.price_eur - b.price_eur);
         break;
       case "price-desc":
-        filtered.sort((a, b) => b.price - a.price);
+        filtered.sort((a, b) => b.price_eur - a.price_eur);
         break;
       default:
         // No default sorting, keeps original order (usually by creation date)
@@ -68,7 +119,7 @@ const Shop = () => {
               <SelectContent>
                 <SelectItem value="all">{t("shop.allCategories")}</SelectItem>
                 {categories?.map(cat => (
-                  <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -102,10 +153,11 @@ const Shop = () => {
             filteredAndSortedProducts.map((product) => (
               <ProductCard
                 key={product.id}
-                image={product.image_url || "/placeholder.svg"}
+                id={product.id.toString()}
+                image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
                 category={getCategoryName(product.category_id)}
-                price={product.price.toFixed(0)}
+                price={product.price_eur.toFixed(0)}
               />
             ))
           ) : (

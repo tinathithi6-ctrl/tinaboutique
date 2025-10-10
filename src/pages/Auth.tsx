@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext"; // Importer le hook d'authentification
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 
@@ -27,6 +27,7 @@ const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const { setAuthData } = useAuth(); // Utiliser la fonction du contexte
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -48,27 +49,19 @@ const Auth = () => {
         password: formData.password,
       });
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email: validated.email,
-        password: validated.password,
+      const response = await fetch('http://localhost:3001/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validated),
       });
 
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          toast({
-            title: t("auth.toast.login.error.title"),
-            description: t("auth.toast.login.error.description"),
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: t("auth.toast.genericError.title"),
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur de connexion');
       }
+
+      setAuthData(data.user, data.token); // Mettre à jour le contexte
 
       toast({
         title: t("auth.toast.login.success.title"),
@@ -78,10 +71,17 @@ const Auth = () => {
       navigate(from, { replace: true });
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue.';
       if (error instanceof z.ZodError) {
         toast({
           title: t("auth.toast.validation.title"),
           description: error.errors[0].message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: t("auth.toast.login.error.title"),
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -97,33 +97,16 @@ const Auth = () => {
     try {
       const validated = signupSchema(t).parse(formData);
 
-      const { error } = await supabase.auth.signUp({
-        email: validated.email,
-        password: validated.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            full_name: validated.fullName,
-            phone: validated.phone || "",
-          },
-        },
+      const response = await fetch('http://localhost:3001/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(validated),
       });
 
-      if (error) {
-        if (error.message.includes("User already registered")) {
-          toast({
-            title: t("auth.toast.signup.error.title"),
-            description: t("auth.toast.signup.error.description"),
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: t("auth.toast.genericError.title"),
-            description: error.message,
-            variant: "destructive",
-          });
-        }
-        return;
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erreur lors de l\'inscription.');
       }
 
       toast({
@@ -131,12 +114,19 @@ const Auth = () => {
         description: t("auth.toast.signup.success.description"),
       });
       setIsLogin(true);
-      setFormData({ email: "", password: "", fullName: "", phone: "" });
+      setFormData({ email: validated.email, password: "", fullName: "", phone: "" }); // Garder l'email
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue.';
       if (error instanceof z.ZodError) {
         toast({
           title: t("auth.toast.validation.title"),
           description: error.errors[0].message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: t("auth.toast.signup.error.title"),
+          description: errorMessage,
           variant: "destructive",
         });
       }
