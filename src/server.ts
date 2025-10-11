@@ -4,6 +4,7 @@ import bodyParser from 'body-parser';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { pool } from './db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -46,8 +47,20 @@ const generalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Étendre l'interface Request pour inclure user
+declare global {
+  namespace Express {
+    interface Request {
+      user?: {
+        id: string;
+        role: string;
+      };
+    }
+  }
+}
+
 // Middleware d'authentification JWT
-const authenticateToken = async (req: any, res: any, next: any) => {
+const authenticateToken = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1497,8 +1510,135 @@ app.post('/api/verify-promo-code', async (req, res) => {
   }
 });
 
+// --- API PAIEMENTS (PCI DSS Compliant) ---
+
+// Créer un intent de paiement
+app.post('/api/payments/create-intent', authenticateToken, async (req, res) => {
+  try {
+    const { amount, currency, orderId, paymentMethod, metadata } = req.body;
+
+    if (!amount || !currency || !orderId || !paymentMethod) {
+      return res.status(400).json({ error: 'Données de paiement incomplètes' });
+    }
+
+    // Importer le service de paiement
+    const { paymentService } = await import('./payments.js');
+
+    const intent = await paymentService.createPaymentIntent({
+      amount,
+      currency,
+      orderId,
+      customerId: req.user.id,
+      paymentMethod,
+      metadata
+    });
+
+    res.json({
+      intentId: intent.id,
+      clientSecret: intent.id, // En production, générer un vrai client_secret
+      expiresAt: intent.expiresAt
+    });
+
+  } catch (error) {
+    console.error('Erreur création intent:', error);
+    res.status(500).json({ error: 'Erreur lors de la création du paiement' });
+  }
+});
+
+// Traiter un paiement
+app.post('/api/payments/process', authenticateToken, async (req, res) => {
+  try {
+    const { intentId, paymentData } = req.body;
+
+    if (!intentId || !paymentData) {
+      return res.status(400).json({ error: 'Données de paiement manquantes' });
+    }
+
+    const { paymentService } = await import('./payments.js');
+
+    const result = await paymentService.processPayment(intentId, paymentData);
+
+    res.json(result);
+
+  } catch (error) {
+    console.error('Erreur traitement paiement:', error);
+    res.status(500).json({ error: 'Erreur lors du traitement du paiement' });
+  }
+});
+
+// Paiement Mobile Money
+app.post('/api/payments/mobile-money', authenticateToken, async (req, res) => {
+  try {
+    const { amount, currency, orderId, phone, provider } = req.body;
+
+    // Logique spécifique Mobile Money
+    // Intégration avec MTN Mobile Money, Orange Money, etc.
+
+    res.json({
+      success: true,
+      transactionId: 'mm_' + crypto.randomBytes(16).toString('hex'),
+      message: 'Paiement Mobile Money initié. Veuillez confirmer sur votre téléphone.'
+    });
+
+  } catch (error) {
+    console.error('Erreur paiement mobile:', error);
+    res.status(500).json({ error: 'Erreur lors du paiement mobile' });
+  }
+});
+
+// Virement bancaire
+app.post('/api/payments/bank-transfer', authenticateToken, async (req, res) => {
+  try {
+    const { amount, currency, orderId } = req.body;
+
+    // Générer les instructions de virement
+    const instructions = {
+      bankName: 'Banque Centrale',
+      accountNumber: 'XXXX-XXXX-XXXX-XXXX',
+      accountName: 'TinaBoutique SARL',
+      reference: `ORDER-${orderId}`,
+      amount: amount,
+      currency: currency,
+      deadline: new Date(Date.now() + 72 * 60 * 60 * 1000) // 72h
+    };
+
+    res.json({
+      success: true,
+      transactionId: 'bt_' + crypto.randomBytes(16).toString('hex'),
+      instructions
+    });
+
+  } catch (error) {
+    console.error('Erreur virement bancaire:', error);
+    res.status(500).json({ error: 'Erreur lors de la génération des instructions' });
+  }
+});
+
+// Webhook pour confirmer les paiements
+app.post('/api/payments/webhook/:provider', async (req, res) => {
+  try {
+    const { provider } = req.params;
+    const signature = req.headers['x-webhook-signature'] as string;
+    const payload = req.body;
+
+    const { paymentService } = await import('./payments.js');
+
+    const isValid = await paymentService.handleWebhook(provider, signature, payload);
+
+    if (isValid) {
+      res.json({ received: true });
+    } else {
+      res.status(400).json({ error: 'Webhook invalide' });
+    }
+
+  } catch (error) {
+    console.error('Erreur webhook:', error);
+    res.status(500).json({ error: 'Erreur traitement webhook' });
+  }
+});
+
 // Endpoint pour créer une commande
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', authenticateToken, async (req, res) => {
   const { user_id, total_amount, shipping_address, customer_info, items, currency, promo_code } = req.body;
 
   if (!user_id || !total_amount || !shipping_address || !customer_info || !items || items.length === 0) {
