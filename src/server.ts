@@ -7,12 +7,112 @@ import fs from 'fs';
 import { pool } from './db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import expressValidator from 'express-validator';
+import morgan from 'morgan';
 
 const app = express();
 const port = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'votre-secret-jwt-super-secret'; // À mettre dans .env !
+const JWT_SECRET = process.env.JWT_SECRET;
 
-const allowedOrigins = ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
+if (!JWT_SECRET) {
+  console.error('❌ JWT_SECRET manquant dans les variables d\'environnement');
+  process.exit(1);
+}
+
+// Configuration des origines CORS autorisées
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [process.env.FRONTEND_URL || 'https://votredomaine.com']
+  : ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
+
+// --- MIDDLEWARES DE SÉCURITÉ ---
+
+// Rate limiting pour les tentatives d'authentification
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 tentatives max par fenêtre
+  message: { error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiting général
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requêtes max par fenêtre
+  message: { error: 'Trop de requêtes. Veuillez patienter.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Middleware d'authentification JWT
+const authenticateToken = async (req: any, res: any, next: any) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Token d\'authentification requis' });
+    }
+
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+
+    // Vérifier si l'utilisateur existe toujours
+    const userResult = await pool.query('SELECT id, role FROM users WHERE id = $1', [decoded.userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    req.user = {
+      id: decoded.userId,
+      role: userResult.rows[0].role
+    };
+    next();
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ error: 'Token expiré' });
+    }
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({ error: 'Token invalide' });
+    }
+    console.error('Erreur d\'authentification:', error);
+    res.status(500).json({ error: 'Erreur d\'authentification' });
+  }
+};
+
+// Middleware d'autorisation admin
+const requireAdmin = (req: any, res: any, next: any) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Accès administrateur requis' });
+  }
+  next();
+};
+
+// Middleware de validation des entrées
+const validateInput = (req: any, res: any, next: any) => {
+  // Sanitisation basique des entrées
+  const sanitize = (obj: any) => {
+    for (let key in obj) {
+      if (typeof obj[key] === 'string') {
+        // Échapper les caractères HTML dangereux
+        obj[key] = obj[key].replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+        obj[key] = obj[key].replace(/<[^>]*>/g, '');
+        // Limiter la longueur
+        if (obj[key].length > 1000) {
+          obj[key] = obj[key].substring(0, 1000);
+        }
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        sanitize(obj[key]);
+      }
+    }
+  };
+
+  if (req.body) sanitize(req.body);
+  if (req.query) sanitize(req.query);
+  if (req.params) sanitize(req.params);
+
+  next();
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -61,59 +161,180 @@ const upload = multer({
 });
 
 app.use(cors(corsOptions));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '10mb' })); // Limiter la taille du body
 app.use('/uploads', express.static(uploadsDir));
+
+// --- ENDPOINT DE SANTÉ (Monitoring) ---
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// --- APPLICATION DES MIDDLEWARES DE SÉCURITÉ ---
+
+// Headers de sécurité (OWASP)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "http:"],
+      scriptSrc: ["'self'"],
+      connectSrc: ["'self'", "https://api.stripe.com"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Logging des requêtes (sécurisé)
+app.use(morgan('combined', {
+  skip: (req, res) => {
+    // Ne pas logger les requêtes de santé/statiques
+    return req.url === '/health' || req.url.startsWith('/uploads/');
+  }
+}));
+
+// Rate limiting général
+app.use('/api/', generalLimiter);
+
+// Validation des entrées sur toutes les routes
+app.use('/api/', validateInput);
 
 // --- API D'AUTHENTIFICATION ---
 
-// Inscription
-app.post('/api/auth/signup', async (req, res) => {
+// Validation du mot de passe (OWASP)
+const validatePassword = (password: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push('Le mot de passe doit contenir au moins 8 caractères');
+  }
+  if (!/[A-Z]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins une majuscule');
+  }
+  if (!/[a-z]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins une minuscule');
+  }
+  if (!/\d/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins un chiffre');
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    errors.push('Le mot de passe doit contenir au moins un caractère spécial');
+  }
+
+  return { isValid: errors.length === 0, errors };
+};
+
+// Validation email
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email) && email.length <= 255;
+};
+
+// Inscription avec sécurité renforcée
+app.post('/api/auth/signup', authLimiter, async (req, res) => {
   const { email, password, fullName } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email et mot de passe requis.' });
+  // Validation des entrées
+  if (!email || !password || !fullName) {
+    return res.status(400).json({ error: 'Email, mot de passe et nom complet requis.' });
+  }
+
+  if (!validateEmail(email)) {
+    return res.status(400).json({ error: 'Format d\'email invalide.' });
+  }
+
+  if (fullName.length < 2 || fullName.length > 100) {
+    return res.status(400).json({ error: 'Le nom doit contenir entre 2 et 100 caractères.' });
+  }
+
+  const passwordValidation = validatePassword(password);
+  if (!passwordValidation.isValid) {
+    return res.status(400).json({
+      error: 'Mot de passe trop faible.',
+      details: passwordValidation.errors
+    });
   }
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Vérifier si l'email existe déjà
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'Cet email est déjà utilisé.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12); // Augmenter le coût de hachage
     const newUser = await pool.query(
-      'INSERT INTO users (email, password_hash, full_name) VALUES ($1, $2, $3) RETURNING id, email, full_name, role',
-      [email, hashedPassword, fullName]
+      'INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role',
+      [email, hashedPassword, fullName, 'user']
     );
-    res.status(201).json(newUser.rows[0]);
+
+    // Logger l'inscription (sans le mot de passe)
+    console.log(`Nouvel utilisateur inscrit: ${email} (ID: ${newUser.rows[0].id})`);
+
+    res.status(201).json({
+      id: newUser.rows[0].id,
+      email: newUser.rows[0].email,
+      fullName: newUser.rows[0].full_name,
+      role: newUser.rows[0].role
+    });
   } catch (error) {
     console.error("Erreur d'inscription:", error);
-    res.status(500).json({ error: 'Cet email est peut-être déjà utilisé.' });
+    res.status(500).json({ error: 'Erreur lors de l\'inscription. Veuillez réessayer.' });
   }
 });
 
-// Connexion
-app.post('/api/auth/login', async (req, res) => {
+// Connexion avec sécurité renforcée
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   const { email, password } = req.body;
 
+  // Validation des entrées
   if (!email || !password) {
     return res.status(400).json({ error: 'Email et mot de passe requis.' });
   }
 
+  if (!validateEmail(email)) {
+    return res.status(400).json({ error: 'Format d\'email invalide.' });
+  }
+
   try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await pool.query('SELECT id, email, password_hash, full_name, role FROM users WHERE email = $1', [email]);
     const user = result.rows[0];
 
     if (!user) {
+      // Ne pas révéler si l'email existe ou non (sécurité)
       return res.status(401).json({ error: 'Identifiants incorrects.' });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
     if (!isPasswordValid) {
+      // Logger les tentatives de connexion échouées
+      console.log(`Tentative de connexion échouée pour: ${email}`);
       return res.status(401).json({ error: 'Identifiants incorrects.' });
     }
 
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      {
+        expiresIn: '24h',
+        issuer: 'tinaboutique-api',
+        audience: 'tinaboutique-client'
+      }
     );
+
+    // Logger la connexion réussie
+    console.log(`Connexion réussie: ${email} (ID: ${user.id})`);
 
     res.json({
       token,
@@ -295,10 +516,10 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
 });
 
 
-// --- API D'ADMINISTRATION (TODO: Sécuriser ces routes) ---
+// --- API D'ADMINISTRATION (SÉCURISÉES) ---
 
-// Créer un produit
-app.post('/api/admin/products', async (req, res) => {
+// Créer un produit (ADMIN UNIQUEMENT)
+app.post('/api/admin/products', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { name, description, category_id, price_eur, price_usd, price_cdf, stock_quantity, images } = req.body;
     const query = `
@@ -314,8 +535,8 @@ app.post('/api/admin/products', async (req, res) => {
   }
 });
 
-// Mettre à jour un produit
-app.put('/api/admin/products/:id', async (req, res) => {
+// Mettre à jour un produit (ADMIN UNIQUEMENT)
+app.put('/api/admin/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, category_id, price_eur, price_usd, price_cdf, stock_quantity, images, is_active } = req.body;
@@ -333,8 +554,8 @@ app.put('/api/admin/products/:id', async (req, res) => {
   }
 });
 
-// Supprimer un produit (soft delete)
-app.delete('/api/admin/products/:id', async (req, res) => {
+// Supprimer un produit (ADMIN UNIQUEMENT)
+app.delete('/api/admin/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('UPDATE products SET is_active = false WHERE id = $1', [id]);
@@ -344,10 +565,10 @@ app.delete('/api/admin/products/:id', async (req, res) => {
   }
 });
 
-// --- API DE RAPPORTS (TODO: Sécuriser ces routes) ---
+// --- API DE RAPPORTS (ADMIN UNIQUEMENT) ---
 
-// Obtenir des statistiques de ventes générales
-app.get('/api/admin/reports/sales-summary', async (req, res) => {
+// Obtenir des statistiques de ventes générales (ADMIN UNIQUEMENT)
+app.get('/api/admin/reports/sales-summary', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const totalRevenue = await pool.query(`
       SELECT 
@@ -571,10 +792,10 @@ app.put('/api/profile', async (req, res) => {
   }
 });
 
-// --- APIs UTILISATEURS ADMIN ---
+// --- APIs UTILISATEURS ADMIN (ADMIN UNIQUEMENT) ---
 
-// Obtenir tous les utilisateurs (avec recherche)
-app.get('/api/admin/users', async (req, res) => {
+// Obtenir tous les utilisateurs (avec recherche) (ADMIN UNIQUEMENT)
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { search, limit = 50, offset = 0 } = req.query;
 
@@ -795,8 +1016,8 @@ app.get('/api/admin/orders/filtered', async (req, res) => {
 });
 
 
-// Obtenir toutes les commandes (Admin)
-app.get('/api/admin/orders', async (req, res) => {
+// Obtenir toutes les commandes (ADMIN UNIQUEMENT)
+app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) => {
   try {
     // Vérifier d'abord si la table orders existe
     const tableCheck = await pool.query(`
@@ -851,8 +1072,8 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-// Mettre à jour le rôle d'un utilisateur (Admin)
-app.put('/api/admin/users/:id/role', async (req, res) => {
+// Mettre à jour le rôle d'un utilisateur (ADMIN UNIQUEMENT)
+app.put('/api/admin/users/:id/role', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
