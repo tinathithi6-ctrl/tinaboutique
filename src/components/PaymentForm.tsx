@@ -34,7 +34,7 @@ export const PaymentForm = ({
   });
   const [mobileData, setMobileData] = useState({
     phone: '',
-    provider: 'mtn'
+    provider: 'orange' // Défaut Orange Money (plus populaire en RDC)
   });
 
   // Méthodes de paiement disponibles selon le pays
@@ -350,9 +350,10 @@ export const PaymentForm = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mtn">MTN Mobile Money</SelectItem>
-                  <SelectItem value="orange">Orange Money</SelectItem>
-                  <SelectItem value="airtel">Airtel Money</SelectItem>
+                  <SelectItem value="orange">Orange Money (RDC)</SelectItem>
+                  <SelectItem value="airtel">Airtel Money (RDC)</SelectItem>
+                  <SelectItem value="africell">Africell Money (RDC)</SelectItem>
+                  <SelectItem value="mpesa">M-Pesa (International)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -88,25 +88,65 @@ export const PAYMENT_PROVIDERS = {
     setup: 'Spécialisé Éthiopie'
   },
 
-  // Solutions Mobile Money (très populaires en Afrique)
-  MTN_MOMO: {
-    name: 'MTN Mobile Money',
-    regions: ['Afrique Centrale', 'Afrique de l\'Ouest'],
-    currencies: ['CDF', 'XAF', 'XOF'],
-    methods: ['mobile'],
-    compliance: 'Conforme réglementations locales',
-    fees: '1-5%',
-    setup: 'Intégration API'
-  },
-
+  // Solutions Mobile Money RDC (Sélection utilisateur)
   ORANGE_MONEY: {
     name: 'Orange Money',
-    regions: ['Afrique Centrale', 'Afrique de l\'Ouest'],
-    currencies: ['CDF', 'XAF', 'XOF'],
+    regions: ['RDC', 'Afrique Centrale'],
+    currencies: ['CDF', 'USD'],
+    methods: ['mobile'],
+    compliance: 'Conforme BEAC & BCC',
+    fees: '1-3%',
+    setup: 'API Direct + Flutterwave',
+    api: {
+      baseUrl: 'https://api.orange.com',
+      authType: 'OAuth2',
+      supported: true
+    }
+  },
+
+  AIRTEL_MONEY: {
+    name: 'Airtel Money',
+    regions: ['RDC', 'Afrique Centrale'],
+    currencies: ['CDF', 'USD'],
+    methods: ['mobile'],
+    compliance: 'Conforme BEAC & BCC',
+    fees: '2-4%',
+    setup: 'API Direct + Flutterwave',
+    api: {
+      baseUrl: 'https://api.airtel.com',
+      authType: 'API Key',
+      supported: true
+    }
+  },
+
+  AFRICELL_MONEY: {
+    name: 'Africell Money',
+    regions: ['RDC Est/Sud'],
+    currencies: ['CDF', 'USD'],
+    methods: ['mobile'],
+    compliance: 'Conforme BCC',
+    fees: '1-4%',
+    setup: 'API Direct',
+    api: {
+      baseUrl: 'https://api.africell.com',
+      authType: 'Basic Auth',
+      supported: true
+    }
+  },
+
+  MPESA: {
+    name: 'M-Pesa',
+    regions: ['Kenya', 'Tanzanie', 'Afrique du Sud'],
+    currencies: ['KES', 'TZS', 'ZAR', 'USD'],
     methods: ['mobile'],
     compliance: 'Conforme réglementations locales',
-    fees: '1-3%',
-    setup: 'Intégration API'
+    fees: '0.5-2%',
+    setup: 'API Direct + Safaricom',
+    api: {
+      baseUrl: 'https://api.safaricom.co.ke',
+      authType: 'OAuth2',
+      supported: false // Pas natif RDC, mais via partenariats
+    }
   }
 };
 
