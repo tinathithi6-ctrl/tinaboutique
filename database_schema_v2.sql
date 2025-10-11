@@ -36,6 +36,15 @@ CREATE TABLE products (
     price_eur NUMERIC(10, 2) NOT NULL,
     price_usd NUMERIC(10, 2) NOT NULL,
     price_cdf NUMERIC(10, 2) NOT NULL,
+    -- Champs pour les promotions intégrées
+    sale_price_eur NUMERIC(10, 2), -- Prix promotionnel EUR (NULL = pas de promo)
+    sale_price_usd NUMERIC(10, 2), -- Prix promotionnel USD
+    sale_price_cdf NUMERIC(10, 2), -- Prix promotionnel CDF
+    sale_start_date TIMESTAMPTZ, -- Date de début de la promotion
+    sale_end_date TIMESTAMPTZ, -- Date de fin de la promotion
+    -- Champs pour les réductions par quantité
+    bulk_discount_threshold INTEGER, -- Seuil de quantité pour réduction (ex: 3 articles)
+    bulk_discount_percentage NUMERIC(5, 2), -- Pourcentage de réduction par quantité
     stock_quantity INTEGER DEFAULT 0,
     images TEXT[], -- Tableau d'URLs pour les images du produit
     is_active BOOLEAN DEFAULT true,

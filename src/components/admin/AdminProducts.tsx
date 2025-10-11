@@ -29,6 +29,12 @@ export const AdminProducts = () => {
     stock: "",
     category_id: "",
     image_url: "",
+    // Champs de promotion
+    sale_price: "",
+    sale_start_date: "",
+    sale_end_date: "",
+    bulk_discount_threshold: "",
+    bulk_discount_percentage: "",
     is_active: true,
   });
 
@@ -40,6 +46,12 @@ export const AdminProducts = () => {
       stock: "",
       category_id: "",
       image_url: "",
+      // Champs de promotion
+      sale_price: "",
+      sale_start_date: "",
+      sale_end_date: "",
+      bulk_discount_threshold: "",
+      bulk_discount_percentage: "",
       is_active: true,
     });
     setEditingProduct(null);
@@ -58,6 +70,15 @@ export const AdminProducts = () => {
         price_eur: parseFloat(formData.price),
         price_usd: parseFloat(formData.price) * 0.85, // Simple conversion, adjust as needed
         price_cdf: parseFloat(formData.price) * 2800, // Simple conversion
+        // Champs de promotion
+        sale_price_eur: formData.sale_price ? parseFloat(formData.sale_price) : null,
+        sale_price_usd: formData.sale_price ? parseFloat(formData.sale_price) * 0.85 : null,
+        sale_price_cdf: formData.sale_price ? parseFloat(formData.sale_price) * 2800 : null,
+        sale_start_date: formData.sale_start_date || null,
+        sale_end_date: formData.sale_end_date || null,
+        // Champs de réduction par quantité
+        bulk_discount_threshold: formData.bulk_discount_threshold ? parseInt(formData.bulk_discount_threshold) : null,
+        bulk_discount_percentage: formData.bulk_discount_percentage ? parseFloat(formData.bulk_discount_percentage) : null,
         stock_quantity: parseInt(formData.stock),
         images: formData.image_url ? [formData.image_url] : null,
         is_active: formData.is_active,
@@ -97,6 +118,12 @@ export const AdminProducts = () => {
       stock: product.stock_quantity.toString(),
       category_id: product.category_id || "",
       image_url: product.images ? product.images[0] : "",
+      // Champs de promotion
+      sale_price: product.sale_price_eur ? product.sale_price_eur.toString() : "",
+      sale_start_date: product.sale_start_date ? new Date(product.sale_start_date).toISOString().split('T')[0] : "",
+      sale_end_date: product.sale_end_date ? new Date(product.sale_end_date).toISOString().split('T')[0] : "",
+      bulk_discount_threshold: product.bulk_discount_threshold ? product.bulk_discount_threshold.toString() : "",
+      bulk_discount_percentage: product.bulk_discount_percentage ? product.bulk_discount_percentage.toString() : "",
       is_active: product.is_active,
     });
     setSelectedFile(null);
@@ -175,7 +202,77 @@ export const AdminProducts = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
+              {/* Section Promotions */}
+              <div className="border-t pt-4 mt-4">
+                <h3 className="text-lg font-semibold mb-4">Promotions et Réductions</h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="sale_price">Prix promotionnel (EUR)</Label>
+                    <Input
+                      id="sale_price"
+                      type="number"
+                      step="0.01"
+                      value={formData.sale_price}
+                      onChange={(e) => setFormData({ ...formData, sale_price: e.target.value })}
+                      placeholder="Ex: 45.99"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Laissez vide pour pas de promotion</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label htmlFor="sale_start_date">Début promo</Label>
+                      <Input
+                        id="sale_start_date"
+                        type="date"
+                        value={formData.sale_start_date}
+                        onChange={(e) => setFormData({ ...formData, sale_start_date: e.target.value })}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="sale_end_date">Fin promo</Label>
+                      <Input
+                        id="sale_end_date"
+                        type="date"
+                        value={formData.sale_end_date}
+                        onChange={(e) => setFormData({ ...formData, sale_end_date: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <Label htmlFor="bulk_discount_threshold">Seuil réduction quantité</Label>
+                    <Input
+                      id="bulk_discount_threshold"
+                      type="number"
+                      min="2"
+                      value={formData.bulk_discount_threshold}
+                      onChange={(e) => setFormData({ ...formData, bulk_discount_threshold: e.target.value })}
+                      placeholder="Ex: 3"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Nombre d'articles minimum</p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="bulk_discount_percentage">Réduction quantité (%)</Label>
+                    <Input
+                      id="bulk_discount_percentage"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={formData.bulk_discount_percentage}
+                      onChange={(e) => setFormData({ ...formData, bulk_discount_percentage: e.target.value })}
+                      placeholder="Ex: 10"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">Pourcentage de réduction</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Image Upload Field - Temporarily disabled */}
               {/* <div>
                 <Label htmlFor="imageFile">{t("admin.products.imageFile")}</Label>

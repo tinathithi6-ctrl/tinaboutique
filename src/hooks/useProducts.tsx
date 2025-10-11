@@ -8,6 +8,15 @@ export interface Product {
   price_eur: number;
   price_usd: number;
   price_cdf: number;
+  // Champs de promotion intégrés
+  sale_price_eur: number | null;
+  sale_price_usd: number | null;
+  sale_price_cdf: number | null;
+  sale_start_date: string | null;
+  sale_end_date: string | null;
+  // Champs de réduction par quantité
+  bulk_discount_threshold: number | null;
+  bulk_discount_percentage: number | null;
   stock_quantity: number;
   images: string[] | null;
   is_active: boolean;

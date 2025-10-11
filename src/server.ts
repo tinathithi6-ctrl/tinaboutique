@@ -131,6 +131,50 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Fonction utilitaire pour calculer le prix final d'un produit
+function calculateProductPrice(product: any, quantity: number = 1) {
+  let finalPrice = product.price_eur;
+  let discountApplied = false;
+  let discountType = null;
+  let discountAmount = 0;
+
+  // Vérifier les promotions actives
+  if (product.sale_price_eur &&
+      product.sale_start_date &&
+      product.sale_end_date &&
+      new Date() >= new Date(product.sale_start_date) &&
+      new Date() <= new Date(product.sale_end_date)) {
+    finalPrice = product.sale_price_eur;
+    discountApplied = true;
+    discountType = 'promotion';
+    discountAmount = product.price_eur - product.sale_price_eur;
+  }
+
+  // Appliquer les réductions par quantité si applicable
+  if (product.bulk_discount_threshold &&
+      product.bulk_discount_percentage &&
+      quantity >= product.bulk_discount_threshold) {
+    const bulkDiscount = (finalPrice * product.bulk_discount_percentage) / 100;
+    finalPrice = finalPrice - bulkDiscount;
+    discountApplied = true;
+    if (discountType === 'promotion') {
+      discountType = 'promotion+bulk';
+    } else {
+      discountType = 'bulk';
+    }
+    discountAmount += bulkDiscount;
+  }
+
+  return {
+    originalPrice: product.price_eur,
+    finalPrice: Math.max(0, finalPrice), // Assurer que le prix ne soit pas négatif
+    discountApplied,
+    discountType,
+    discountAmount,
+    currency: 'EUR'
+  };
+}
+
 // --- API PUBLIQUE ---
 
 // Obtenir tous les produits (avec filtres optionnels)
@@ -138,7 +182,12 @@ app.get('/api/products', async (req, res) => {
   try {
     // TODO: Ajouter la logique de filtrage et de pagination
     const result = await pool.query('SELECT * FROM products WHERE is_active = true');
-    res.json(result.rows);
+    const products = result.rows.map(product => ({
+      ...product,
+      // Ajouter les informations de prix calculées
+      pricing: calculateProductPrice(product, 1)
+    }));
+    res.json(products);
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
@@ -148,11 +197,41 @@ app.get('/api/products', async (req, res) => {
 app.get('/api/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const { quantity = 1 } = req.query;
     const result = await pool.query('SELECT * FROM products WHERE id = $1', [id]);
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Produit non trouvé.' });
     }
-    res.json(result.rows[0]);
+    const product = result.rows[0];
+    const pricing = calculateProductPrice(product, parseInt(quantity as string));
+    res.json({
+      ...product,
+      pricing
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Calculer le prix d'un produit pour une quantité donnée
+app.get('/api/products/:id/price', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { quantity = 1 } = req.query;
+
+    const result = await pool.query('SELECT * FROM products WHERE id = $1 AND is_active = true', [id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Produit non trouvé.' });
+    }
+
+    const product = result.rows[0];
+    const pricing = calculateProductPrice(product, parseInt(quantity as string));
+
+    res.json({
+      productId: id,
+      quantity: parseInt(quantity as string),
+      pricing
+    });
   } catch (error) {
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
@@ -873,14 +952,37 @@ app.get('/api/cart', async (req, res) => {
         p.price_eur,
         p.price_usd,
         p.price_cdf,
-        p.images[1] as image_url
+        p.images[1] as image_url,
+        p.sale_price_eur,
+        p.sale_start_date,
+        p.sale_end_date,
+        p.bulk_discount_threshold,
+        p.bulk_discount_percentage
       FROM cart_items ci
       JOIN products p ON ci.product_id = p.id
       WHERE ci.user_id = $1
       ORDER BY ci.added_at DESC
     `, [userId]);
 
-    res.json(result.rows);
+    // Calculer les prix pour chaque article du panier
+    const cartItems = result.rows.map(item => {
+      const pricing = calculateProductPrice({
+        price_eur: item.price_eur,
+        sale_price_eur: item.sale_price_eur,
+        sale_start_date: item.sale_start_date,
+        sale_end_date: item.sale_end_date,
+        bulk_discount_threshold: item.bulk_discount_threshold,
+        bulk_discount_percentage: item.bulk_discount_percentage
+      }, item.quantity);
+
+      return {
+        ...item,
+        pricing,
+        totalPrice: pricing.finalPrice * item.quantity
+      };
+    });
+
+    res.json(cartItems);
   } catch (error) {
     console.error('Erreur lors de la récupération du panier:', error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
@@ -1023,9 +1125,160 @@ app.delete('/api/cart', async (req, res) => {
   }
 });
 
+// --- API CODES PROMO ---
+
+// Obtenir tous les codes promo
+app.get('/api/admin/promo-codes', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM promo_codes ORDER BY created_at DESC');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des codes promo:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Créer un code promo
+app.post('/api/admin/promo-codes', async (req, res) => {
+  try {
+    const { code, discount_percentage, valid_until } = req.body;
+    const query = `
+      INSERT INTO promo_codes (code, discount_percentage, valid_until)
+      VALUES ($1, $2, $3)
+      RETURNING *;
+    `;
+    const values = [code, discount_percentage, valid_until];
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur lors de la création du code promo:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Mettre à jour un code promo
+app.put('/api/admin/promo-codes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { code, discount_percentage, valid_until, is_active } = req.body;
+    const query = `
+      UPDATE promo_codes
+      SET code = $1, discount_percentage = $2, valid_until = $3, is_active = $4
+      WHERE id = $5
+      RETURNING *;
+    `;
+    const values = [code, discount_percentage, valid_until, is_active, id];
+    const result = await pool.query(query, values);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du code promo:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Supprimer un code promo
+app.delete('/api/admin/promo-codes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM promo_codes WHERE id = $1', [id]);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Erreur lors de la suppression du code promo:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// --- API PROMOTIONS ---
+
+// Obtenir toutes les promotions
+app.get('/api/admin/promotions', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, pr.name as product_name
+      FROM promotions p
+      LEFT JOIN products pr ON p.product_id = pr.id
+      ORDER BY p.created_at DESC
+    `);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des promotions:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Créer une promotion
+app.post('/api/admin/promotions', async (req, res) => {
+  try {
+    const { product_id, discount_percentage, start_date, end_date } = req.body;
+    const query = `
+      INSERT INTO promotions (product_id, discount_percentage, start_date, end_date)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *;
+    `;
+    const values = [product_id, discount_percentage, start_date, end_date];
+    const result = await pool.query(query, values);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur lors de la création de la promotion:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Mettre à jour une promotion
+app.put('/api/admin/promotions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { product_id, discount_percentage, start_date, end_date, is_active } = req.body;
+    const query = `
+      UPDATE promotions
+      SET product_id = $1, discount_percentage = $2, start_date = $3, end_date = $4, is_active = $5
+      WHERE id = $6
+      RETURNING *;
+    `;
+    const values = [product_id, discount_percentage, start_date, end_date, is_active, id];
+    const result = await pool.query(query, values);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de la promotion:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Supprimer une promotion
+app.delete('/api/admin/promotions/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM promotions WHERE id = $1', [id]);
+    res.status(204).send();
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la promotion:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Vérifier un code promo
+app.post('/api/verify-promo-code', async (req, res) => {
+  try {
+    const { code } = req.body;
+    const result = await pool.query(
+      'SELECT * FROM promo_codes WHERE code = $1 AND is_active = true AND (valid_until IS NULL OR valid_until > NOW())',
+      [code]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Code promo invalide ou expiré.' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur lors de la vérification du code promo:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
 // Endpoint pour créer une commande
 app.post('/api/orders', async (req, res) => {
-  const { user_id, total_amount, shipping_address, customer_info, items, currency } = req.body;
+  const { user_id, total_amount, shipping_address, customer_info, items, currency, promo_code } = req.body;
 
   if (!user_id || !total_amount || !shipping_address || !customer_info || !items || items.length === 0) {
     return res.status(400).json({ error: 'Données de commande incomplètes.' });
@@ -1036,13 +1289,29 @@ app.post('/api/orders', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    // Calculer la réduction si code promo
+    let discount_amount = 0;
+    if (promo_code) {
+      const promoResult = await client.query(
+        'SELECT * FROM promo_codes WHERE code = $1 AND is_active = true AND (valid_until IS NULL OR valid_until > NOW())',
+        [promo_code]
+      );
+
+      if (promoResult.rows.length > 0) {
+        const promo = promoResult.rows[0];
+        discount_amount = (total_amount * promo.discount_percentage) / 100;
+      }
+    }
+
+    const final_amount = total_amount - discount_amount;
+
     // Insérer dans la table 'orders'
     const orderQuery = `
       INSERT INTO orders (user_id, total_amount, shipping_address, customer_info, status, currency)
       VALUES ($1, $2, $3, $4, 'pending', $5)
       RETURNING id;
     `;
-    const orderValues = [user_id, total_amount, shipping_address, customer_info, currency];
+    const orderValues = [user_id, final_amount, shipping_address, customer_info, currency];
     const orderResult = await client.query(orderQuery, orderValues);
     const orderId = orderResult.rows[0].id;
 
@@ -1060,7 +1329,13 @@ app.post('/api/orders', async (req, res) => {
     await client.query('DELETE FROM cart_items WHERE user_id = $1', [user_id]);
 
     await client.query('COMMIT');
-    res.status(201).json({ message: 'Commande créée avec succès', orderId });
+    res.status(201).json({
+      message: 'Commande créée avec succès',
+      orderId,
+      discount_applied: discount_amount > 0,
+      discount_amount,
+      final_amount
+    });
 
   } catch (error) {
     await client.query('ROLLBACK');

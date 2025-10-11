@@ -21,6 +21,14 @@ interface ApiProduct {
   stock_quantity: number;
   images: string[];
   is_active: boolean;
+  pricing?: {
+    originalPrice: number;
+    finalPrice: number;
+    discountApplied: boolean;
+    discountType?: string;
+    discountAmount: number;
+    currency: string;
+  };
 }
 
 interface ApiCategory {
@@ -177,7 +185,10 @@ const Shop = () => {
                 image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
                 category={getCategoryName(product.category_id)}
-                price={Number(product.price_eur).toFixed(0)}
+                price={Number(product.pricing?.finalPrice || product.price_eur).toFixed(0)}
+                originalPrice={product.pricing?.discountApplied ? Number(product.pricing.originalPrice).toFixed(0) : undefined}
+                discountApplied={product.pricing?.discountApplied || false}
+                discountType={product.pricing?.discountType}
                 onAddToCart={() => handleAddToCart(product)}
               />
             ))

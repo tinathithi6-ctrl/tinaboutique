@@ -8,10 +8,13 @@ interface ProductCardProps {
   name: string;
   category: string;
   price: string;
+  originalPrice?: string;
+  discountApplied?: boolean;
+  discountType?: string;
   onAddToCart?: () => void;
 }
 
-const ProductCard = ({ image, name, category, price, onAddToCart }: ProductCardProps) => {
+const ProductCard = ({ image, name, category, price, originalPrice, discountApplied, discountType, onAddToCart }: ProductCardProps) => {
   const { t } = useTranslation();
   const [isLiked, setIsLiked] = useState(false);
   const [imageError, setImageError] = useState(false);
@@ -73,7 +76,14 @@ const ProductCard = ({ image, name, category, price, onAddToCart }: ProductCardP
         </div>
 
         {/* Badge */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4 flex flex-col gap-2">
+          {discountApplied && (
+            <span className="bg-red-500 text-white text-xs font-semibold font-heading px-3 py-1 rounded-full">
+              {discountType === 'promotion' ? 'PROMO' :
+               discountType === 'bulk' ? 'QUANTITÉ' :
+               discountType === 'promotion+bulk' ? 'PROMO+QTÉ' : 'RÉDUCTION'}
+            </span>
+          )}
           <span className="bg-gold text-primary text-xs font-semibold font-heading px-3 py-1 rounded-full">
             {t("product.newBadge")}
           </span>
@@ -88,9 +98,16 @@ const ProductCard = ({ image, name, category, price, onAddToCart }: ProductCardP
         <h3 className="font-heading text-lg font-semibold text-card-foreground group-hover:text-gold transition-smooth">
           {name}
         </h3>
-        <p className="text-xl font-medium text-card-foreground">
-          {price} <span className="text-gold">$</span>
-        </p>
+        <div className="flex items-center gap-2">
+          {discountApplied && originalPrice && (
+            <span className="text-sm text-muted-foreground line-through">
+              {originalPrice}€
+            </span>
+          )}
+          <p className={`text-xl font-medium ${discountApplied ? 'text-red-600' : 'text-card-foreground'}`}>
+            {price}€
+          </p>
+        </div>
       </div>
     </div>
   );
