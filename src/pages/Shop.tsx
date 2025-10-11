@@ -100,10 +100,18 @@ const Shop = () => {
     // Sorting
     switch (sortOrder) {
       case "price-asc":
-        filtered.sort((a, b) => a.price_eur - b.price_eur);
+        filtered.sort((a, b) => {
+          const priceA = a.pricing?.finalPrice || a.price_eur;
+          const priceB = b.pricing?.finalPrice || b.price_eur;
+          return priceA - priceB;
+        });
         break;
       case "price-desc":
-        filtered.sort((a, b) => b.price_eur - a.price_eur);
+        filtered.sort((a, b) => {
+          const priceA = a.pricing?.finalPrice || a.price_eur;
+          const priceB = b.pricing?.finalPrice || b.price_eur;
+          return priceB - priceA;
+        });
         break;
       default:
         // No default sorting, keeps original order (usually by creation date)

@@ -1,29 +1,137 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import ProductCard from '@/components/ProductCard';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "react-toastify";
 
-// Exemple de données de produits, à remplacer par une source de données réelle
-const allProducts = [
-  { id: '1', name: 'Robe de Soirée Élégante', category: 'robes', price: 199.99, image: '/assets/img/product/product-1.webp' },
-  { id: '2', name: 'Robe d\'Été Florale', category: 'robes', price: 79.99, image: '/assets/img/product/product-2.webp' },
-  { id: '3', name: 'Chemise Homme Business', category: 'homme', price: 89.99, image: '/assets/img/product/product-3.webp' },
-  { id: '4', name: 'T-shirt Homme Coton Bio', category: 'homme', price: 39.99, image: '/assets/img/product/product-4.webp' },
-  { id: '5', name: 'Ensemble Enfant Joueur', category: 'enfants', price: 59.99, image: '/assets/img/product/product-5.webp' },
-  { id: '6', name: 'Pyjama Enfant Doux', category: 'enfants', price: 49.99, image: '/assets/img/product/product-6.webp' },
-  { id: '7', name: 'Sac à Main Cuir', category: 'accessoires', price: 129.99, image: '/assets/img/product/product-7.webp' },
-  { id: '8', name: 'Ceinture Classique', category: 'accessoires', price: 45.99, image: '/assets/img/product/product-8.webp' },
-];
+// Définition des types pour les données de l'API
+interface ApiProduct {
+  id: number;
+  name: string;
+  description: string;
+  category_id: number;
+  price_eur: number;
+  price_usd: number;
+  price_cdf: number;
+  stock_quantity: number;
+  images: string[];
+  is_active: boolean;
+  pricing?: {
+    originalPrice: number;
+    finalPrice: number;
+    discountApplied: boolean;
+    discountType?: string;
+    discountAmount: number;
+    currency: string;
+  };
+}
+
+interface ApiCategory {
+  id: number;
+  name: string;
+}
 
 const CategoryPage = () => {
   const { name } = useParams<{ name: string }>();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
+  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState("default");
 
-  const products = allProducts.filter(p => p.category.toLowerCase() === name?.toLowerCase());
+  const fetchProducts = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/products');
+      const data = await response.json();
+      setProducts(data);
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('http://localhost:3001/api/categories');
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setProductsLoading(true);
+      setCategoriesLoading(true);
+      await Promise.all([fetchProducts(), fetchCategories()]);
+      setProductsLoading(false);
+      setCategoriesLoading(false);
+    };
+
+    loadData();
+  }, []);
+
+  const getCategoryName = (categoryId: number | null) => {
+    if (!categoryId || !categories) return 'Autre';
+    const category = categories.find((cat) => cat.id === categoryId);
+    return category?.name || 'Autre';
+  };
+
+  const categoryId = categories.find(cat => cat.name.toLowerCase() === name?.toLowerCase())?.id;
   const categoryTitle = name ? name.charAt(0).toUpperCase() + name.slice(1) : 'Catégorie';
 
+  const filteredAndSortedProducts = useMemo(() => {
+    if (!products || !categoryId) return [];
+
+    let filtered = products.filter(p => p.category_id === categoryId);
+
+    // Sorting
+    switch (sortOrder) {
+      case "price-asc":
+        filtered.sort((a, b) => {
+          const priceA = a.pricing?.finalPrice || a.price_eur;
+          const priceB = b.pricing?.finalPrice || b.price_eur;
+          return priceA - priceB;
+        });
+        break;
+      case "price-desc":
+        filtered.sort((a, b) => {
+          const priceA = a.pricing?.finalPrice || a.price_eur;
+          const priceB = b.pricing?.finalPrice || b.price_eur;
+          return priceB - priceA;
+        });
+        break;
+      default:
+        break;
+    }
+
+    return filtered;
+  }, [products, categoryId, sortOrder]);
+
+  const handleAddToCart = (product: ApiProduct) => {
+    if (!user) {
+      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
+      return;
+    }
+    addToCart({
+      id: String(product.id),
+      name: product.name,
+      price: Number(product.price_eur),
+      image: product.images?.[0] || '/placeholder.svg'
+    }, 1);
+    toast.success(`${product.name} ajouté au panier !`);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen flex flex-col">
       <Header />
 
       {/* Breadcrumb */}
@@ -38,55 +146,83 @@ const CategoryPage = () => {
                 Accueil
               </Link>
               <ChevronRight className="h-4 w-4 mx-2 text-gray-400" />
+              <Link to="/boutique" className="text-gray-600 hover:text-gold transition-colors">
+                Boutique
+              </Link>
+              <ChevronRight className="h-4 w-4 mx-2 text-gray-400" />
               <span className="text-gray-900 font-medium">{categoryTitle}</span>
             </nav>
           </div>
         </div>
       </div>
 
-      {/* Product Grid */}
-      <div className="container mx-auto px-4 py-8">
-        {products.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {products.map((product) => (
-              <div
-                key={product.id}
-                className="group bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300"
-              >
-                <Link to={`/product/${product.id}`}>
-                  <div className="aspect-[3/4] overflow-hidden rounded-t-xl">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                  </div>
-                </Link>
-                <div className="p-4">
-                  <Link to={`/product/${product.id}`}>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2 group-hover:text-gold transition-colors line-clamp-2">
-                      {product.name}
-                    </h3>
-                  </Link>
-                  <div className="flex items-center gap-2 mb-4">
-                    <span className="text-2xl font-bold text-gray-900">{product.price}€</span>
-                  </div>
-                  <button className="w-full py-3 bg-gold text-white rounded-lg font-semibold hover:bg-gold/90 transition-colors">
-                    Voir le produit
-                  </button>
-                </div>
+      <main className="flex-1 container mx-auto px-4 py-12">
+        <div className="space-y-4 mb-12 text-center">
+          <h1 className="text-4xl md:text-5xl font-heading font-bold text-foreground">
+            {categoryTitle}
+          </h1>
+          <p className="text-muted-foreground text-lg">
+            Découvrez notre collection {categoryTitle.toLowerCase()}
+          </p>
+        </div>
+
+        {/* Sorting */}
+        <div className="flex justify-center items-center mb-8">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Trier par :</span>
+            <Select value={sortOrder} onValueChange={setSortOrder}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Trier par" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Par défaut</SelectItem>
+                <SelectItem value="price-asc">Prix croissant</SelectItem>
+                <SelectItem value="price-desc">Prix décroissant</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Product Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 md:gap-8">
+          {productsLoading ? (
+            Array.from({ length: 8 }).map((_, index) => (
+              <div key={`skeleton-${index}`} className="space-y-4">
+                <div className="aspect-[4/5] bg-gray-200 rounded-lg animate-pulse"></div>
+                <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse"></div>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Aucun produit trouvé</h2>
-            <p className="text-gray-600">
-              Il n'y a actuellement aucun produit dans la catégorie "{categoryTitle}".
-            </p>
-          </div>
-        )}
-      </div>
+            ))
+          ) : filteredAndSortedProducts.length > 0 ? (
+            filteredAndSortedProducts.map((product) => (
+              <ProductCard
+                key={`product-${product.id}`}
+                image={product.images[0] || "/placeholder.svg"}
+                name={product.name}
+                category={getCategoryName(product.category_id)}
+                price={Number(product.pricing?.finalPrice || product.price_eur).toFixed(0)}
+                originalPrice={product.pricing?.discountApplied ? Number(product.pricing.originalPrice).toFixed(0) : undefined}
+                discountApplied={product.pricing?.discountApplied || false}
+                discountType={product.pricing?.discountType}
+                onAddToCart={() => handleAddToCart(product)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-12">
+              <p className="text-muted-foreground text-lg">Aucun produit trouvé</p>
+              <p className="text-muted-foreground text-sm mt-2">
+                Il n'y a actuellement aucun produit dans la catégorie "{categoryTitle}".
+              </p>
+              <Link
+                to="/shop"
+                className="inline-block mt-4 px-6 py-3 bg-gold text-white rounded-lg font-semibold hover:bg-gold/90 transition-colors"
+              >
+                Voir tous les produits
+              </Link>
+            </div>
+          )}
+        </div>
+      </main>
 
       <Footer />
     </div>
