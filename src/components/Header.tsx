@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Search, User, ShoppingBag, Menu, X, LogOut, Shield } from "lucide-react";
+import { Search, User, ShoppingBag, Menu, X, LogOut, Shield, Heart } from "lucide-react";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useCart } from "@/contexts/CartContext";
 import logo from "../../image/LOGO.png";
 
 const Header = () => {
@@ -15,6 +16,7 @@ const Header = () => {
   const { user, signOut } = useAuth();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
+  const { cartCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -38,7 +40,6 @@ const Header = () => {
   const navLinks = [
     { name: t("nav.home"), to: "/" },
     { name: "Boutique", to: "/boutique" },
-    { name: "Catégories", to: "/category" },
     { name: "Produits", to: "/shop" },
     { name: "Panier", to: "/cart" },
     { name: "Paiement", to: "/checkout" },
@@ -96,13 +97,30 @@ const Header = () => {
           {/* Action Icons */}
           <div className="flex items-center gap-2">
             <LanguageSwitcher />
-            <button
-              className={`hidden md:block transition-all duration-300 hover:scale-110 ${
-                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
-              }`}
-            >
-              <Search className="h-5 w-5" />
-            </button>
+            
+            {/* Recherche */}
+            <Link to="/search">
+              <button
+                className={`hidden md:block transition-all duration-300 hover:scale-110 ${
+                  isScrolled ? "text-primary" : "text-white drop-shadow-lg"
+                }`}
+                title="Rechercher"
+              >
+                <Search className="h-5 w-5" />
+              </button>
+            </Link>
+
+            {/* Favoris */}
+            <Link to="/wishlist">
+              <button
+                className={`hidden md:block transition-all duration-300 hover:scale-110 relative ${
+                  isScrolled ? "text-primary" : "text-white drop-shadow-lg"
+                }`}
+                title="Mes Favoris"
+              >
+                <Heart className="h-5 w-5" />
+              </button>
+            </Link>
             {user ? (
               <>
                 {isAdmin && (
@@ -147,16 +165,20 @@ const Header = () => {
                 </button>
               </Link>
             )}
-            <button
-              className={`transition-all duration-300 hover:scale-110 relative ${
-                isScrolled ? "text-primary" : "text-white drop-shadow-lg"
-              }`}
-            >
-              <ShoppingBag className="h-5 w-5" />
-              <span className="absolute -top-2 -right-2 bg-gold text-primary text-xs font-semibold font-heading rounded-full h-5 w-5 flex items-center justify-center">
-                0
-              </span>
-            </button>
+            <Link to="/cart">
+              <button
+                className={`transition-all duration-300 hover:scale-110 relative ${
+                  isScrolled ? "text-primary" : "text-white drop-shadow-lg"
+                }`}
+              >
+                <ShoppingBag className="h-5 w-5" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-gold text-primary text-xs font-semibold font-heading rounded-full h-5 w-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </Link>
 
             {/* Mobile Menu Toggle */}
             <button
@@ -210,9 +232,16 @@ const Header = () => {
               return null;
             })}
             <div className="flex gap-4 pt-4 border-t border-border">
-              <Button variant="ghost" size="icon">
-                <Search className="h-5 w-5" />
-              </Button>
+              <Link to="/search">
+                <Button variant="ghost" size="icon" title="Rechercher">
+                  <Search className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link to="/wishlist">
+                <Button variant="ghost" size="icon" title="Mes Favoris">
+                  <Heart className="h-5 w-5" />
+                </Button>
+              </Link>
               {user ? (
                 <>
                   {isAdmin && (
