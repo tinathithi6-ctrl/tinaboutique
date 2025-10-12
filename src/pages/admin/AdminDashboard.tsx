@@ -27,10 +27,35 @@ interface LoyalCustomer {
   total_spent_eur: string;
 }
 
+interface PaymentLog {
+  id: number;
+  transaction_id: string;
+  order_id: string | null;
+  payment_method: string;
+  provider: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  action: string;
+  error_message: string | null;
+  created_at: string;
+}
+
+interface PaymentStats {
+  total_transactions: number;
+  successful_transactions: number;
+  failed_transactions: number;
+  total_amount: string;
+  avg_transaction_amount: string;
+  unique_users: number;
+}
+
 const AdminDashboard: React.FC = () => {
   const [summary, setSummary] = useState<SalesSummary | null>(null);
   const [monthlyData, setMonthlyData] = useState<MonthlySale[]>([]);
   const [loyalCustomers, setLoyalCustomers] = useState<LoyalCustomer[]>([]);
+  const [paymentLogs, setPaymentLogs] = useState<PaymentLog[]>([]);
+  const [paymentStats, setPaymentStats] = useState<PaymentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,10 +79,12 @@ const AdminDashboard: React.FC = () => {
           return;
         }
 
-        const [summaryRes, monthlyRes, loyalCustomersRes] = await Promise.all([
+        const [summaryRes, monthlyRes, loyalCustomersRes, paymentLogsRes, paymentStatsRes] = await Promise.all([
           fetch('http://localhost:3001/api/admin/reports/sales-summary'),
           fetch('http://localhost:3001/api/admin/reports/monthly-sales'),
           fetch('http://localhost:3001/api/admin/reports/loyal-customers'),
+          fetch('http://localhost:3001/api/admin/payment-logs?limit=10'),
+          fetch('http://localhost:3001/api/admin/payment-stats'),
         ]);
 
         const summaryData = summaryRes.ok ? await summaryRes.json() : {
@@ -67,10 +94,14 @@ const AdminDashboard: React.FC = () => {
         };
         const monthlyData = monthlyRes.ok ? await monthlyRes.json() : [];
         const loyalCustomersData = loyalCustomersRes.ok ? await loyalCustomersRes.json() : [];
+        const paymentLogsData = paymentLogsRes.ok ? await paymentLogsRes.json() : [];
+        const paymentStatsData = paymentStatsRes.ok ? await paymentStatsRes.json() : null;
 
         setSummary(summaryData);
         setMonthlyData(monthlyData);
         setLoyalCustomers(loyalCustomersData);
+        setPaymentLogs(paymentLogsData);
+        setPaymentStats(paymentStatsData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue');
       } finally {
