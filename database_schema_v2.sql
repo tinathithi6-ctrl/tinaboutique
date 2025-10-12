@@ -125,3 +125,34 @@ INSERT INTO categories (name, description) VALUES
 ('Homme', 'Vêtements et accessoires pour hommes.'),
 ('Enfants', 'Vêtements confortables et ludiques pour enfants.'),
 ('Accessoires', 'Sacs, ceintures, et autres accessoires pour compléter votre look.');
+
+-- Table des logs de paiement (Audit Trail Complet)
+CREATE TABLE IF NOT EXISTS payment_logs (
+    id SERIAL PRIMARY KEY,
+    transaction_id VARCHAR(255) UNIQUE NOT NULL,
+    order_id VARCHAR(255),
+    user_id UUID REFERENCES users(id),
+    payment_method VARCHAR(50) NOT NULL, -- 'card', 'mobile_money', 'bank_transfer'
+    provider VARCHAR(50), -- 'flutterwave', 'orange', 'airtel', 'africell', 'mpesa'
+    amount DECIMAL(15,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'CDF',
+    status VARCHAR(50) NOT NULL, -- 'pending', 'processing', 'completed', 'failed', 'cancelled'
+    action VARCHAR(100) NOT NULL, -- 'create_intent', 'process_payment', 'webhook_received', etc.
+    request_data JSONB, -- Données de la requête (masquées pour sécurité)
+    response_data JSONB, -- Données de la réponse (masquées pour sécurité)
+    error_message TEXT,
+    ip_address INET,
+    user_agent TEXT,
+    metadata JSONB, -- Informations supplémentaires (numéro masqué, etc.)
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index pour optimiser les recherches dans les logs
+CREATE INDEX IF NOT EXISTS idx_payment_logs_transaction_id ON payment_logs(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_order_id ON payment_logs(order_id);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_user_id ON payment_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_status ON payment_logs(status);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_created_at ON payment_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_payment_method ON payment_logs(payment_method);
+CREATE INDEX IF NOT EXISTS idx_payment_logs_provider ON payment_logs(provider);
