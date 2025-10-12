@@ -9,7 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { Loader2 } from "lucide-react";
+import ProfileHeader from "@/components/profile/ProfileHeader";
+import ProfileStats from "@/components/profile/ProfileStats";
+import ProfileTabs from "@/components/profile/ProfileTabs";
+import OrderHistory from "@/components/profile/OrderHistory";
+import SecuritySettings from "@/components/profile/SecuritySettings";
+import AddressManager from "@/components/profile/AddressManager";
+import PreferencesPanel from "@/components/profile/PreferencesPanel";
+import { useUserStats } from "@/hooks/useUserStats";
+import { Loader2, User, MapPin, Phone, Mail } from "lucide-react";
 
 interface ProfileData {
   full_name: string;
@@ -28,8 +36,10 @@ const Profile = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user, token, loading: authLoading } = useAuth();
+  const { stats, loading: statsLoading } = useUserStats();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState("profile");
   const [profileData, setProfileData] = useState<ProfileData>({
     full_name: "",
     phone: "",
@@ -140,22 +150,52 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
       <main className="flex-1 container mx-auto px-4 py-12">
-        <Card className="max-w-2xl mx-auto">
-          <CardHeader>
-            <CardTitle className="text-2xl font-heading">{t("profile.title")}</CardTitle>
-            <CardDescription>{t("profile.description")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Profile Header avec Avatar et Badge */}
+          <ProfileHeader
+            fullName={profileData.full_name}
+            email={user?.email || ""}
+            tier={stats.tier}
+          />
+
+          {/* Statistiques */}
+          <ProfileStats
+            totalOrders={stats.totalOrders}
+            totalSpent={stats.totalSpent}
+            loyaltyPoints={stats.loyaltyPoints}
+            tier={stats.tier}
+          />
+
+          {/* Onglets */}
+          <ProfileTabs activeTab={activeTab} onTabChange={setActiveTab} />
+
+          {/* Contenu selon l'onglet actif */}
+          {activeTab === "profile" && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <User className="h-5 w-5 text-gold" />
+                <CardTitle className="text-xl font-heading">Informations Personnelles</CardTitle>
+              </div>
+              <CardDescription>Gérez vos informations de profil et adresse de livraison</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">{t("profile.labels.email")}</Label>
-              <Input id="email" value={user?.email || ""} disabled />
+              <Label htmlFor="email" className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                {t("profile.labels.email")}
+              </Label>
+              <Input id="email" value={user?.email || ""} disabled className="bg-gray-50" />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fullName">{t("profile.labels.fullName")}</Label>
+              <Label htmlFor="fullName" className="flex items-center gap-2">
+                <User className="h-4 w-4 text-gray-500" />
+                {t("profile.labels.fullName")}
+              </Label>
               <Input
                 id="fullName"
                 value={profileData.full_name}
@@ -167,7 +207,10 @@ const Profile = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">{t("profile.labels.phone")}</Label>
+              <Label htmlFor="phone" className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-gray-500" />
+                {t("profile.labels.phone")}
+              </Label>
               <Input
                 id="phone"
                 type="tel"
@@ -180,7 +223,10 @@ const Profile = () => {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold">{t("profile.shippingAddress.title")}</h3>
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-gold" />
+                {t("profile.shippingAddress.title")}
+              </h3>
               
               <div className="space-y-2">
                 <Label htmlFor="street">{t("profile.shippingAddress.street")}</Label>
@@ -269,6 +315,20 @@ const Profile = () => {
             </Button>
           </CardContent>
         </Card>
+          )}
+
+          {/* Onglet Commandes */}
+          {activeTab === "orders" && <OrderHistory />}
+
+          {/* Onglet Adresses */}
+          {activeTab === "addresses" && <AddressManager />}
+
+          {/* Onglet Sécurité */}
+          {activeTab === "security" && <SecuritySettings />}
+
+          {/* Onglet Préférences */}
+          {activeTab === "preferences" && <PreferencesPanel />}
+        </div>
       </main>
       <Footer />
     </div>

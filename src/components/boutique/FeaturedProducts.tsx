@@ -43,17 +43,7 @@ const FeaturedProducts = () => {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = (product: Product) => {
-    if (!user) {
-      toast({
-        title: "Connexion requise",
-        description: "Veuillez vous connecter pour ajouter des articles au panier.",
-        variant: "destructive",
-      });
-      navigate('/auth');
-      return;
-    }
-
+const handleAddToCart = (product: Product) => {
     addToCart({
       id: product.id.toString(),
       name: product.name,
@@ -65,6 +55,13 @@ const FeaturedProducts = () => {
       title: "Produit ajouté",
       description: `${product.name} a été ajouté à votre panier.`,
     });
+    
+    if (!user) {
+      toast({
+        title: "Astuce",
+        description: "Connectez-vous pour sauvegarder votre panier entre sessions.",
+      });
+    }
   };
 
   const renderStars = (rating: number) => {

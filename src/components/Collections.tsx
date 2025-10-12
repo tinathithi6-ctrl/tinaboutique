@@ -5,16 +5,35 @@ import { Button } from "@/components/ui/button";
 import { useProducts } from "@/hooks/useProducts";
 import { useCategories } from "@/hooks/useCategories";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "react-toastify";
 
 const Collections = () => {
   const { t } = useTranslation();
   const { data: products, isLoading: productsLoading } = useProducts();
   const { data: categories } = useCategories();
+  const { addToCart } = useCart();
+  const { user } = useAuth();
 
   const getCategoryName = (categoryId: string | null) => {
     if (!categoryId || !categories) return t("product.other");
     const category = categories.find((cat) => cat.id === categoryId);
     return category?.name || t("product.other");
+  };
+
+  const handleAddToCart = (product: any) => {
+    addToCart({
+      id: String(product.id),
+      name: product.name,
+      price: Number(product.price_eur),
+      image: product.images?.[0] || '/placeholder.svg'
+    }, 1);
+    toast.success(`${product.name} ajouté au panier !`);
+    
+    if (!user) {
+      toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
+    }
   };
 
   return (
@@ -51,6 +70,7 @@ const Collections = () => {
                   name={product.name}
                   category={getCategoryName(product.category_id)}
                   price={Number(product.price_eur || 0).toFixed(0)}
+                  onAddToCart={() => handleAddToCart(product)}
                 />
               </div>
             ))

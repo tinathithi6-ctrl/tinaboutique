@@ -1,0 +1,24 @@
+========================================
+  CONFIGURATION IMPORTANTE - .env
+========================================
+
+VERIFIEZ VOTRE FICHIER .env
+
+Il DOIT contenir:
+
+DB_NAME=tinaboutique_db
+DB_USER=tinaboutique_user
+DB_PASSWORD=your_password
+DB_HOST=localhost
+DB_PORT=5432
+
+JWT_SECRET=your_secret_key
+
+PORT=3001
+
+========================================
+
+Si DB_NAME n'est pas "tinaboutique_db",
+modifiez-le et redémarrez le serveur.
+
+========================================

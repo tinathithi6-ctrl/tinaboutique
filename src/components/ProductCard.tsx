@@ -53,12 +53,17 @@ const ProductCard = ({ image, name, category, price, originalPrice, discountAppl
         )}
         
         {/* Overlay Actions */}
-        <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 transition-smooth flex items-center justify-center gap-3">
+        <div className="absolute inset-0 bg-primary/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center gap-3 z-10">
           <Button
             variant="gold"
             size="sm"
-            className="shadow-lg"
-            onClick={onAddToCart}
+            className="shadow-lg hover:scale-105 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAddToCart) {
+                onAddToCart();
+              }
+            }}
           >
             <ShoppingBag className="h-4 w-4 mr-2" />
             {t("product.addToBag")}
@@ -66,12 +71,32 @@ const ProductCard = ({ image, name, category, price, originalPrice, discountAppl
           <Button
             variant="outline"
             size="icon"
-            className="shadow-lg bg-card/90 backdrop-blur-sm"
-            onClick={() => setIsLiked(!isLiked)}
+            className="shadow-lg bg-card/90 backdrop-blur-sm hover:scale-105 transition-transform"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLiked(!isLiked);
+            }}
           >
             <Heart
               className={`h-4 w-4 transition-all ${isLiked ? "fill-gold text-gold" : ""}`}
             />
+          </Button>
+        </div>
+        
+        {/* Quick Add Button (Always Visible on Mobile) */}
+        <div className="md:hidden absolute bottom-2 right-2 z-20">
+          <Button
+            variant="gold"
+            size="icon"
+            className="shadow-lg rounded-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onAddToCart) {
+                onAddToCart();
+              }
+            }}
+          >
+            <ShoppingBag className="h-4 w-4" />
           </Button>
         </div>
 

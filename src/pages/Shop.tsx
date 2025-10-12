@@ -4,7 +4,6 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-toastify";
@@ -122,10 +121,6 @@ const Shop = () => {
   }, [products, selectedCategory, sortOrder]);
 
   const handleAddToCart = (product: ApiProduct) => {
-    if (!user) {
-      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
-      return;
-    }
     addToCart({
       id: String(product.id),
       name: product.name,
@@ -133,6 +128,10 @@ const Shop = () => {
       image: product.images?.[0] || '/placeholder.svg'
     }, 1);
     toast.success(`${product.name} ajouté au panier !`);
+    
+    if (!user) {
+      toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
+    }
   };
 
   const isLoading = productsLoading || categoriesLoading;
@@ -146,33 +145,53 @@ const Shop = () => {
         </div>
 
         {/* Filters and Sorting */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-8">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{t("shop.filterByCategory")}:</span>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t("shop.filterByCategory")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("shop.allCategories")}</SelectItem>
-                {categories?.map(cat => (
-                  <SelectItem key={cat.id} value={String(cat.id)}>{cat.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{t("shop.sortBy")}:</span>
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder={t("shop.sortBy")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">{t("shop.sort.default")}</SelectItem>
-                <SelectItem value="price-asc">{t("shop.sort.priceAsc")}</SelectItem>
-                <SelectItem value="price-desc">{t("shop.sort.priceDesc")}</SelectItem>
-              </SelectContent>
-            </Select>
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-8">
+          <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+            {/* Category Filter */}
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                Filtrer par catégorie :
+              </span>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="w-full md:w-[220px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-gold hover:border-gold transition-colors cursor-pointer"
+              >
+                <option value="all">
+                  ✨ Toutes les catégories ({products.length})
+                </option>
+                {categories?.map(cat => {
+                  const count = products.filter(p => p.category_id === cat.id).length;
+                  return (
+                    <option key={cat.id} value={String(cat.id)}>
+                      {cat.name} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Sort Options */}
+            <div className="flex items-center gap-3 w-full md:w-auto">
+              <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">
+                Trier par :
+              </span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
+                className="w-full md:w-[220px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-gold hover:border-gold transition-colors cursor-pointer"
+              >
+                <option value="default">📅 Par défaut</option>
+                <option value="price-asc">💰 Prix croissant</option>
+                <option value="price-desc">💎 Prix décroissant</option>
+              </select>
+            </div>
+
+            {/* Results Count */}
+            <div className="hidden md:block text-sm text-gray-600">
+              <span className="font-semibold text-gold">{filteredAndSortedProducts.length}</span>
+              {' '}produit{filteredAndSortedProducts.length > 1 ? 's' : ''} trouvé{filteredAndSortedProducts.length > 1 ? 's' : ''}
+            </div>
           </div>
         </div>
 

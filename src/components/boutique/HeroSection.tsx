@@ -3,8 +3,11 @@ import { ShoppingCart, Heart, Search, Truck, Award, Headphones } from 'lucide-re
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 import { Link } from 'react-router-dom';
+import { useCart } from '@/contexts/CartContext';
 
 const HeroSection = () => {
+  const { cartCount } = useCart();
+  
   useEffect(() => {
     AOS.init({
       duration: 800,
@@ -134,32 +137,40 @@ const HeroSection = () => {
 
             {/* Floating Icons */}
             <div className="absolute -right-4 top-1/4 space-y-4">
-              <div
+              <Link
+                to="/cart"
                 className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform relative"
                 data-aos="fade-up"
                 data-aos-delay="600"
+                title="Voir le panier"
               >
                 <ShoppingCart className="h-6 w-6 text-gold" />
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                  3
-                </span>
-              </div>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
+                  </span>
+                )}
+              </Link>
               
-              <div
+              <Link
+                to="/wishlist"
                 className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                 data-aos="fade-up"
                 data-aos-delay="700"
+                title="Mes favoris"
               >
                 <Heart className="h-6 w-6 text-gold" />
-              </div>
+              </Link>
               
-              <div
+              <Link
+                to="/search"
                 className="w-14 h-14 bg-white rounded-full shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform"
                 data-aos="fade-up"
                 data-aos-delay="800"
+                title="Rechercher"
               >
                 <Search className="h-6 w-6 text-gold" />
-              </div>
+              </Link>
             </div>
           </div>
         </div>

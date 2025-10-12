@@ -56,13 +56,12 @@ const ProductDetails = () => {
   }, [id]);
 
   const handleAddToCart = (productData: { id: string; name: string; price: number; image: string; }, quantity = 1) => {
-    if (!user) {
-      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
-      navigate('/auth');
-      return;
-    }
     addToCart(productData, quantity);
     toast.success(`${quantity} x ${productData.name} ajouté au panier !`);
+    
+    if (!user) {
+      toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
+    }
   };
 
   // Produits similaires (pourrait être remplacé par un appel API)

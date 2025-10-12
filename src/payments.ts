@@ -199,6 +199,8 @@ export class PaymentService {
     customerId: string;
     paymentMethod: string;
     metadata?: Record<string, any>;
+    ipAddress?: string;
+    userAgent?: string;
   }): Promise<PaymentIntent> {
 
     const intentId = this.generateSecureId();
@@ -216,6 +218,21 @@ export class PaymentService {
       createdAt: new Date(),
       expiresAt
     };
+
+    // Logger la création d'intent
+    await PaymentLogger.logActivity({
+      transactionId: intentId,
+      orderId: orderData.orderId,
+      userId: orderData.customerId,
+      paymentMethod: orderData.paymentMethod,
+      amount: orderData.amount,
+      currency: orderData.currency,
+      status: 'pending',
+      action: 'create_intent',
+      metadata: orderData.metadata,
+      ipAddress: orderData.ipAddress,
+      userAgent: orderData.userAgent
+    });
 
     // Stocker l'intent de manière sécurisée (en cache Redis en production)
     await this.storePaymentIntent(intent);
@@ -403,6 +420,212 @@ export class PaymentService {
     // À implémenter selon les besoins métier
     console.log(`Webhook reçu de ${provider}:`, payload);
     return true;
+  }
+}
+
+// --- SYSTÈME DE LOGGING DES PAIEMENTS (Audit Trail) ---
+
+import { pool } from './db';
+
+export interface PaymentLog {
+  transactionId: string;
+  orderId?: string;
+  userId?: string;
+  paymentMethod: string;
+  provider?: string;
+  amount: number;
+  currency: string;
+  status: string;
+  action: string;
+  requestData?: any;
+  responseData?: any;
+  errorMessage?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: any;
+}
+
+export class PaymentLogger {
+  // Logger toutes les activités de paiement
+  static async logActivity(logData: PaymentLog): Promise<void> {
+    try {
+      // Masquer les données sensibles avant logging
+      const sanitizedRequest = this.sanitizeData(logData.requestData);
+      const sanitizedResponse = this.sanitizeData(logData.responseData);
+      const sanitizedMetadata = this.sanitizeData(logData.metadata);
+
+      await pool.query(`
+        INSERT INTO payment_logs (
+          transaction_id, order_id, user_id, payment_method, provider,
+          amount, currency, status, action, request_data, response_data,
+          error_message, ip_address, user_agent, metadata
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      `, [
+        logData.transactionId,
+        logData.orderId,
+        logData.userId,
+        logData.paymentMethod,
+        logData.provider,
+        logData.amount,
+        logData.currency,
+        logData.status,
+        logData.action,
+        JSON.stringify(sanitizedRequest),
+        JSON.stringify(sanitizedResponse),
+        logData.errorMessage,
+        logData.ipAddress,
+        logData.userAgent,
+        JSON.stringify(sanitizedMetadata)
+      ]);
+    } catch (error) {
+      console.error('Erreur lors du logging de paiement:', error);
+      // Ne pas throw pour ne pas casser le flow de paiement
+    }
+  }
+
+  // Récupérer les logs pour l'admin
+  static async getPaymentLogs(filters: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+    paymentMethod?: string;
+    provider?: string;
+    userId?: string;
+    startDate?: Date;
+    endDate?: Date;
+    transactionId?: string;
+  } = {}): Promise<any[]> {
+    try {
+      let query = `
+        SELECT
+          id, transaction_id, order_id, user_id, payment_method, provider,
+          amount, currency, status, action, error_message,
+          ip_address, user_agent, metadata, created_at
+        FROM payment_logs
+        WHERE 1=1
+      `;
+      const params: any[] = [];
+      let paramIndex = 1;
+
+      if (filters.status) {
+        query += ` AND status = $${paramIndex}`;
+        params.push(filters.status);
+        paramIndex++;
+      }
+
+      if (filters.paymentMethod) {
+        query += ` AND payment_method = $${paramIndex}`;
+        params.push(filters.paymentMethod);
+        paramIndex++;
+      }
+
+      if (filters.provider) {
+        query += ` AND provider = $${paramIndex}`;
+        params.push(filters.provider);
+        paramIndex++;
+      }
+
+      if (filters.userId) {
+        query += ` AND user_id = $${paramIndex}`;
+        params.push(filters.userId);
+        paramIndex++;
+      }
+
+      if (filters.transactionId) {
+        query += ` AND transaction_id = $${paramIndex}`;
+        params.push(filters.transactionId);
+        paramIndex++;
+      }
+
+      if (filters.startDate) {
+        query += ` AND created_at >= $${paramIndex}`;
+        params.push(filters.startDate);
+        paramIndex++;
+      }
+
+      if (filters.endDate) {
+        query += ` AND created_at <= $${paramIndex}`;
+        params.push(filters.endDate);
+        paramIndex++;
+      }
+
+      query += ` ORDER BY created_at DESC`;
+
+      if (filters.limit) {
+        query += ` LIMIT $${paramIndex}`;
+        params.push(filters.limit);
+        paramIndex++;
+      }
+
+      if (filters.offset) {
+        query += ` OFFSET $${paramIndex}`;
+        params.push(filters.offset);
+      }
+
+      const result = await pool.query(query, params);
+      return result.rows;
+    } catch (error) {
+      console.error('Erreur lors de la récupération des logs:', error);
+      throw error;
+    }
+  }
+
+  // Statistiques des paiements pour l'admin
+  static async getPaymentStats(): Promise<any> {
+    try {
+      const result = await pool.query(`
+        SELECT
+          COUNT(*) as total_transactions,
+          COUNT(CASE WHEN status = 'completed' THEN 1 END) as successful_transactions,
+          COUNT(CASE WHEN status = 'failed' THEN 1 END) as failed_transactions,
+          SUM(CASE WHEN status = 'completed' THEN amount ELSE 0 END) as total_amount,
+          AVG(CASE WHEN status = 'completed' THEN amount ELSE NULL END) as avg_transaction_amount,
+          COUNT(DISTINCT user_id) as unique_users
+        FROM payment_logs
+        WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+      `);
+
+      return result.rows[0];
+    } catch (error) {
+      console.error('Erreur lors du calcul des stats:', error);
+      throw error;
+    }
+  }
+
+  // Masquer les données sensibles dans les logs
+  private static sanitizeData(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+
+    const sanitized = { ...data };
+
+    // Masquer les numéros de carte
+    if (sanitized.card_number || sanitized.cardNumber) {
+      const cardNumber = sanitized.card_number || sanitized.cardNumber;
+      if (typeof cardNumber === 'string' && cardNumber.length >= 4) {
+        sanitized.card_number = `****${cardNumber.slice(-4)}`;
+      }
+    }
+
+    // Masquer les CVV
+    if (sanitized.cvv || sanitized.cvc) {
+      sanitized.cvv = '***';
+      sanitized.cvc = '***';
+    }
+
+    // Masquer les mots de passe
+    if (sanitized.password || sanitized.pin) {
+      sanitized.password = '***MASKED***';
+      sanitized.pin = '***MASKED***';
+    }
+
+    // Masquer les tokens sensibles
+    if (sanitized.token || sanitized.api_key || sanitized.secret) {
+      sanitized.token = '***TOKEN_MASKED***';
+      sanitized.api_key = '***API_KEY_MASKED***';
+      sanitized.secret = '***SECRET_MASKED***';
+    }
+
+    return sanitized;
   }
 }
 

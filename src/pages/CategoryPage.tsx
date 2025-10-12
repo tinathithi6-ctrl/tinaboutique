@@ -5,7 +5,6 @@ import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-toastify";
@@ -116,11 +115,7 @@ const CategoryPage = () => {
     return filtered;
   }, [products, categoryId, sortOrder]);
 
-  const handleAddToCart = (product: ApiProduct) => {
-    if (!user) {
-      toast.info('Veuillez vous connecter pour ajouter des articles au panier.');
-      return;
-    }
+const handleAddToCart = (product: ApiProduct) => {
     addToCart({
       id: String(product.id),
       name: product.name,
@@ -128,6 +123,10 @@ const CategoryPage = () => {
       image: product.images?.[0] || '/placeholder.svg'
     }, 1);
     toast.success(`${product.name} ajouté au panier !`);
+    
+    if (!user) {
+      toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
+    }
   };
 
   return (
@@ -170,16 +169,15 @@ const CategoryPage = () => {
         <div className="flex justify-center items-center mb-8">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Trier par :</span>
-            <Select value={sortOrder} onValueChange={setSortOrder}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Trier par" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Par défaut</SelectItem>
-                <SelectItem value="price-asc">Prix croissant</SelectItem>
-                <SelectItem value="price-desc">Prix décroissant</SelectItem>
-              </SelectContent>
-            </Select>
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="w-[180px] px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-gold focus:border-gold hover:border-gold transition-colors cursor-pointer"
+            >
+              <option value="default">Par défaut</option>
+              <option value="price-asc">Prix croissant</option>
+              <option value="price-desc">Prix décroissant</option>
+            </select>
           </div>
         </div>
 

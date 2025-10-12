@@ -118,7 +118,7 @@ export const AdminAnalytics = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
               <div className="ml-2">
                 <p className="text-sm font-medium text-muted-foreground">Valeur perdue</p>
-                <p className="text-2xl font-bold">€{cartStats?.total_abandoned_value.toFixed(0) || 0}</p>
+                <p className="text-2xl font-bold">€{Number(cartStats?.total_abandoned_value || 0).toFixed(0)}</p>
               </div>
             </div>
           </CardContent>
@@ -129,7 +129,7 @@ export const AdminAnalytics = () => {
               <Clock className="h-4 w-4 text-muted-foreground" />
               <div className="ml-2">
                 <p className="text-sm font-medium text-muted-foreground">Âge moyen</p>
-                <p className="text-2xl font-bold">{cartStats?.avg_cart_age.toFixed(1) || 0}j</p>
+                <p className="text-2xl font-bold">{Number(cartStats?.avg_cart_age || 0).toFixed(1)}j</p>
               </div>
             </div>
           </CardContent>
@@ -236,7 +236,7 @@ export const AdminAnalytics = () => {
                 <h4 className="font-semibold text-blue-800">Optimisation du Tunnel d'Achat</h4>
               </div>
               <p className="text-sm text-blue-700">
-                L'âge moyen des paniers abandonnés est de {cartStats?.avg_cart_age.toFixed(1) || 0} jours.
+                L'âge moyen des paniers abandonnés est de {Number(cartStats?.avg_cart_age || 0).toFixed(1)} jours.
                 Recommandation : Simplifier le processus de checkout.
               </p>
             </div>
@@ -247,8 +247,8 @@ export const AdminAnalytics = () => {
                 <h4 className="font-semibold text-green-800">Opportunité de Récupération</h4>
               </div>
               <p className="text-sm text-green-700">
-                Valeur totale des paniers abandonnés : €{cartStats?.total_abandoned_value.toFixed(0) || 0}.
-                Avec un taux de récupération de 20%, vous pourriez récupérer €{(cartStats?.total_abandoned_value || 0 * 0.2).toFixed(0)}.
+                Valeur totale des paniers abandonnés : €{Number(cartStats?.total_abandoned_value || 0).toFixed(0)}.
+                Avec un taux de récupération de 20%, vous pourriez récupérer €{Number((cartStats?.total_abandoned_value || 0) * 0.2).toFixed(0)}.
               </p>
             </div>
           </div>

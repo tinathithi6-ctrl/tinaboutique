@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useCategories } from "@/hooks/useCategories";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,12 +8,15 @@ const CategoryShowcase = () => {
   const { t } = useTranslation();
   const { data: categories, isLoading } = useCategories();
 
-  // Placeholder images for categories
+  // Images haute qualité pour les catégories
   const categoryImages: Record<string, string> = {
     "robes": "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=800&q=80",
-    "accessoires": "https://images.unsplash.com/photo-1590874103328-eac38a683ce7?w=800&q=80",
+    "accessoires": "https://images.unsplash.com/photo-1611652022419-a9419f74343d?w=800&q=80",
     "manteaux": "https://images.unsplash.com/photo-1539533018447-63fcce2678e3?w=800&q=80",
     "sacs": "https://images.unsplash.com/photo-1584917865442-de89df76afd3?w=800&q=80",
+    "enfants": "https://images.unsplash.com/photo-1503919545889-aef636e10ad4?w=800&q=80",
+    "homme": "https://images.unsplash.com/photo-1490578474895-699cd4e2cf59?w=800&q=80",
+    "femme": "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=800&q=80",
   };
 
   return (
@@ -39,39 +43,45 @@ const CategoryShowcase = () => {
               <Skeleton key={index} className="h-[400px] w-full rounded-lg" />
             ))
           ) : categories && categories.length > 0 ? (
-            categories.slice(0, 3).map((category, index) => (
-              <div
-                key={category.id}
-                className="group relative h-[400px] rounded-lg overflow-hidden shadow-elegant hover:shadow-gold transition-smooth cursor-pointer animate-slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                {/* Image */}
-                <img
-                  src={category.image_url || categoryImages[category.slug] || "https://images.unsplash.com/photo-1558769132-cb1aea56c737?w=800&q=80"}
-                  alt={category.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                />
+            categories.slice(0, 3).map((category, index) => {
+              const categoryKey = category.name.toLowerCase();
+              const imageUrl = categoryImages[categoryKey] || "https://images.unsplash.com/photo-1558769132-cb1aea56c737?w=800&q=80";
+              
+              return (
+                <Link
+                  key={category.id}
+                  to={`/category/${category.name.toLowerCase()}`}
+                  className="group relative h-[400px] rounded-lg overflow-hidden shadow-elegant hover:shadow-gold transition-smooth cursor-pointer animate-slide-up block"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {/* Image */}
+                  <img
+                    src={imageUrl}
+                    alt={category.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
 
-                {/* Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/50 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary via-primary/50 to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
 
-                {/* Content */}
-                <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                  <p className="text-sm font-heading font-medium text-gold mb-2 uppercase tracking-wider">
-                    {category.description || t("categories.defaultDescription")}
-                  </p>
-                  <h3 className="text-3xl font-heading font-bold mb-4">
-                    {category.name}
-                  </h3>
-                  <Button
-                    variant="outline"
-                    className="w-fit border-white text-white hover:bg-white hover:text-primary transition-all group-hover:scale-105"
-                  >
-                    {t("categories.discover")}
-                  </Button>
-                </div>
-              </div>
-            ))
+                  {/* Content */}
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                    <p className="text-sm font-heading font-medium text-gold mb-2 uppercase tracking-wider">
+                      {category.description || t("categories.defaultDescription")}
+                    </p>
+                    <h3 className="text-3xl font-heading font-bold mb-4">
+                      {category.name}
+                    </h3>
+                    <Button
+                      variant="outline"
+                      className="w-fit border-white text-white hover:bg-white hover:text-primary transition-all group-hover:scale-105"
+                    >
+                      {t("categories.discover")}
+                    </Button>
+                  </div>
+                </Link>
+              );
+            })
           ) : (
             <div className="col-span-3 text-center py-12">
               <p className="text-muted-foreground">{t("categories.noCategories")}</p>

@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { useTranslation } from "react-i18next";
 import ProductAdmin from "./admin/ProductAdmin";
 import AdminDashboard from "./admin/AdminDashboard";
+import AdminDashboardPro from "./admin/AdminDashboardPro";
 import { AdminCategories } from "@/components/admin/AdminCategories";
 import { AdminOrders } from "@/components/admin/AdminOrders";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
-import { LayoutDashboard, Package, FolderTree, ShoppingCart, Users, LogOut, Search, BarChart3 } from "lucide-react";
+import { ActivityLogs } from "@/components/admin/ActivityLogs";
+import { LayoutDashboard, Package, FolderTree, ShoppingCart, Users, LogOut, Search, BarChart3, Activity } from "lucide-react";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -28,12 +30,14 @@ const Admin = () => {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Protection déjà gérée par ProtectedRoute dans App.tsx
+  // Ce useEffect est conservé comme sécurité supplémentaire
   useEffect(() => {
     if (!authLoading && !roleLoading) {
       if (!user) {
         navigate("/auth", { state: { from: location }, replace: true });
       } else if (!isAdmin) {
-        navigate("/");
+        navigate("/", { replace: true });
       }
     }
   }, [user, isAdmin, authLoading, roleLoading, navigate, location]);
@@ -231,7 +235,7 @@ const Admin = () => {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             {t("admin.tabs.dashboard")}
@@ -239,6 +243,10 @@ const Admin = () => {
           <TabsTrigger value="analytics" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
             Analyses
+          </TabsTrigger>
+          <TabsTrigger value="logs" className="flex items-center gap-2">
+            <Activity className="h-4 w-4" />
+            Logs
           </TabsTrigger>
           <TabsTrigger value="products" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
@@ -259,11 +267,15 @@ const Admin = () => {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6">
-          <AdminDashboard />
+          <AdminDashboardPro />
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-6">
           <AdminAnalytics />
+        </TabsContent>
+
+        <TabsContent value="logs" className="mt-6">
+          <ActivityLogs />
         </TabsContent>
 
         <TabsContent value="products" className="mt-6">
