@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-toastify";
+import { useCurrency } from '@/contexts/CurrencyContext';
+import apiFetch from '@/lib/api';
 
 // Définition des types pour les données de l'API
 interface ApiProduct {
@@ -39,6 +41,7 @@ const Shop = () => {
   const { t } = useTranslation();
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { format } = useCurrency();
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -48,9 +51,15 @@ const Shop = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/products');
-      const data = await response.json();
-      setProducts(data);
+      const data = await apiFetch('/api/products') as any;
+      if (Array.isArray(data)) {
+        setProducts(data);
+      } else if (data && Array.isArray(data.rows)) {
+        setProducts(data.rows);
+      } else {
+        console.warn('fetchProducts: unexpected response shape', data);
+        setProducts([]);
+      }
     } catch (error) {
       console.error("Failed to fetch products:", error);
     }
@@ -58,9 +67,15 @@ const Shop = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories');
-      const data = await response.json();
-      setCategories(data);
+      const data = await apiFetch('/api/categories') as any;
+      if (Array.isArray(data)) {
+        setCategories(data);
+      } else if (data && Array.isArray(data.rows)) {
+        setCategories(data.rows);
+      } else {
+        console.warn('fetchCategories: unexpected response shape', data);
+        setCategories([]);
+      }
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
@@ -212,8 +227,8 @@ const Shop = () => {
                 image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
                 category={getCategoryName(product.category_id)}
-                price={Number(product.pricing?.finalPrice || product.price_eur).toFixed(0)}
-                originalPrice={product.pricing?.discountApplied ? Number(product.pricing.originalPrice).toFixed(0) : undefined}
+                price={format(Number(product.pricing?.finalPrice || product.price_eur))}
+                originalPrice={product.pricing?.discountApplied ? format(Number(product.pricing.originalPrice)) : undefined}
                 discountApplied={product.pricing?.discountApplied || false}
                 discountType={product.pricing?.discountType}
                 onAddToCart={() => handleAddToCart(product)}

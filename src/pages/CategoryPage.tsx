@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { ChevronRight } from 'lucide-react';
+import apiFetch from '@/lib/api';
 import { Link } from 'react-router-dom';
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,9 +49,8 @@ const CategoryPage = () => {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/products');
-      const data = await response.json();
-      setProducts(data);
+        const data = await apiFetch('/api/products');
+        setProducts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch products:", error);
     }
@@ -58,9 +58,8 @@ const CategoryPage = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories');
-      const data = await response.json();
-      setCategories(data);
+        const data = await apiFetch('/api/categories');
+        setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }

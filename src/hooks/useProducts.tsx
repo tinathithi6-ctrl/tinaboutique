@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import apiFetch from '@/lib/api';
 
 export interface Product {
   id: string;
@@ -27,10 +28,9 @@ export interface Product {
 export const useProducts = () => {
   return useQuery({
     queryKey: ["products"],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/products');
-      if (!response.ok) throw new Error('Failed to fetch products');
-      return response.json() as Promise<Product[]>;
+        queryFn: async () => {
+          const data = await apiFetch('/api/products');
+          return Array.isArray(data) ? data : [];
     },
   });
 };
@@ -39,9 +39,8 @@ export const useProductsByCategory = (categoryId: string | null) => {
   return useQuery({
     queryKey: ["products", "category", categoryId],
     queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/products');
-      if (!response.ok) throw new Error('Failed to fetch products');
-      const products: Product[] = await response.json();
+      const data = await apiFetch('/api/products');
+      const products: Product[] = Array.isArray(data) ? data : [];
       if (categoryId) {
         return products.filter(p => p.category_id === categoryId);
       }

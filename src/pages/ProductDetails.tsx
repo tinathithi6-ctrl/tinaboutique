@@ -11,6 +11,8 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { useState, useEffect } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import apiFetch from '@/lib/api';
 
 // Définition des types pour les données de l'API
 interface ApiProduct {
@@ -31,6 +33,7 @@ const ProductDetails = () => {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { format } = useCurrency();
   const [product, setProduct] = useState<ApiProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +42,7 @@ const ProductDetails = () => {
     const fetchProduct = async () => {
       setLoading(true);
       try {
-        const response = await fetch(`http://localhost:3001/api/products/${id}`);
-        if (!response.ok) {
-          throw new Error('Produit non trouvé');
-        }
-        const data = await response.json();
+        const data = await apiFetch(`/api/products/${id}`) as any;
         setProduct(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
@@ -193,7 +192,7 @@ const ProductDetails = () => {
                 handleAddToCart({
                   id: String(product.id),
                   name: product.name,
-                  price: product.price_eur,
+                    price: product.price_eur,
                   image: product.images[0]
                 }, quantity);
               }}

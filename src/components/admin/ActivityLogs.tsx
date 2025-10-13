@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,12 +69,9 @@ export const ActivityLogs = () => {
         params.append('actionType', actionFilter);
       }
 
-      const response = await fetch(`http://localhost:3001/api/admin/activity-logs?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs || []);
-        setTotalPages(Math.ceil((data.total || 0) / 50));
-      }
+  const data = await apiFetch(`/api/admin/activity-logs?${params}`) as any;
+  setLogs(data.rows || []);
+  setTotalPages(data.count ? Math.ceil(data.count / 50) : 1);
     } catch (error) {
       console.error('Erreur chargement logs:', error);
     } finally {

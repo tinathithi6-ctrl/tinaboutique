@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { Minus, Plus, Heart, ShoppingCart, Zap, Truck, RotateCcw, Shield, Headphones, Check } from 'lucide-react';
 import { toast } from 'react-toastify';
 
@@ -34,6 +35,8 @@ const ProductInfo = ({
   const [selectedColor, setSelectedColor] = useState(colors[0]?.name || '');
   const [selectedSize, setSelectedSize] = useState(sizes[0] || '');
   const [quantity, setQuantity] = useState(1);
+
+  const { format } = useCurrency();
 
   const discount = oldPrice ? Math.round(((oldPrice - price) / oldPrice) * 100) : 0;
   const savings = oldPrice ? (oldPrice - price).toFixed(2) : 0;
@@ -113,9 +116,9 @@ const ProductInfo = ({
       {/* Pricing */}
       <div className="space-y-2">
         <div className="flex items-baseline gap-3">
-          <span className="text-4xl font-bold text-gray-900">{price}€</span>
+          <span className="text-4xl font-bold text-gray-900">{format(price)}</span>
           {oldPrice && (
-            <span className="text-2xl text-gray-400 line-through">{oldPrice}€</span>
+            <span className="text-2xl text-gray-400 line-through">{format(oldPrice)}</span>
           )}
         </div>
         {oldPrice && (

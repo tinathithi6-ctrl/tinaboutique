@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 import ProductForm from './ProductForm'; // Importer le formulaire
 
 // Définir le type pour un produit pour plus de clarté
@@ -26,11 +27,8 @@ const ProductAdmin: React.FC = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/products');
-      if (!response.ok) {
-        throw new Error('Erreur lors de la récupération des produits');
-      }
-      const data = await response.json();
+  const data = await apiFetch('/api/products');
+      setProducts(Array.isArray(data) ? data : []);
       setProducts(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Une erreur inconnue est survenue');
@@ -56,12 +54,8 @@ const ProductAdmin: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est réversible (le produit deviendra inactif).')) {
       try {
-        const response = await fetch(`http://localhost:3001/api/admin/products/${id}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          throw new Error('Erreur lors de la suppression du produit.');
-        }
+  await apiFetch(`/api/admin/products/${id}`, { method: 'DELETE' } as any);
+        setProducts(prev => prev.filter(p => p.id !== id));
         fetchProducts(); // Rafraîchir la liste
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue.');

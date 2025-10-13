@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import apiFetch from '@/lib/api';
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -57,10 +58,9 @@ const Admin = () => {
     try {
       let results: any[] = [];
 
-      if (searchType === "all" || searchType === "products") {
-        const productsRes = await fetch(`http://localhost:3001/api/products`);
-        if (productsRes.ok) {
-          const products = await productsRes.json();
+  if (searchType === "all" || searchType === "products") {
+  const products = await apiFetch('/api/products') as any[];
+        if (Array.isArray(products)) {
           const filteredProducts = products.filter((p: any) =>
             p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             p.description?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -71,17 +71,15 @@ const Admin = () => {
 
       if (searchType === "all" || searchType === "users") {
         // Recherche utilisateurs via API admin
-        const usersRes = await fetch(`http://localhost:3001/api/admin/users?search=${encodeURIComponent(searchTerm)}`);
-        if (usersRes.ok) {
-          const users = await usersRes.json();
+        const users = await apiFetch(`/api/admin/users?search=${encodeURIComponent(searchTerm)}`) as any[];
+        if (Array.isArray(users)) {
           results.push(...users.map((u: any) => ({ ...u, type: "user" })));
         }
       }
 
       if (searchType === "all" || searchType === "orders") {
-        const ordersRes = await fetch(`http://localhost:3001/api/admin/orders`);
-        if (ordersRes.ok) {
-          const orders = await ordersRes.json();
+        const orders = await apiFetch('/api/admin/orders') as any[];
+        if (Array.isArray(orders)) {
           const filteredOrders = orders.filter((o: any) =>
             o.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
             o.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -92,9 +90,8 @@ const Admin = () => {
       }
 
       if (searchType === "carts") {
-        const cartsRes = await fetch(`http://localhost:3001/api/admin/abandoned-carts`);
-        if (cartsRes.ok) {
-          const carts = await cartsRes.json();
+        const carts = await apiFetch('/api/admin/abandoned-carts') as any[];
+        if (Array.isArray(carts)) {
           const filteredCarts = carts.filter((c: any) =>
             c.user_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             c.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||

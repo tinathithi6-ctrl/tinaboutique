@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus, Loader2 } from "lucide-react";
+import apiFetch from '@/lib/api';
 
 export const AdminProducts = () => {
   const { t } = useTranslation();
@@ -84,16 +85,16 @@ export const AdminProducts = () => {
         is_active: formData.is_active,
       };
 
-      const url = editingProduct
-        ? `http://localhost:3001/api/admin/products/${editingProduct.id}`
-        : 'http://localhost:3001/api/admin/products';
+            const url = editingProduct
+        ? `/api/admin/products/${editingProduct.id}`
+        : '/api/admin/products';
       const method = editingProduct ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData),
-      });
+      }) as Response;
 
       if (!response.ok) throw new Error('Failed to save product');
 
@@ -134,10 +135,7 @@ export const AdminProducts = () => {
     if (!confirm(t("admin.products.confirmDelete"))) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/products/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete product');
+      await apiFetch(`/api/admin/products/${id}`, { method: 'DELETE' } as any);
       toast.success(t("admin.products.deleted"));
       refetch();
     } catch (error) {

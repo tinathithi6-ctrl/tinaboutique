@@ -183,27 +183,76 @@ export class CurrencyService {
    */
   async fetchLiveRates(): Promise<boolean> {
     try {
-      // TODO: Implémenter l'appel à une API de taux de change
-      // Exemple avec exchangerate-api.com (gratuit)
-      /*
-      const response = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
-      const data = await response.json();
-      
-      const rates = [
-        { from: 'EUR', to: 'USD', rate: data.rates.USD },
-        { from: 'EUR', to: 'CDF', rate: data.rates.CDF || 3000 },
-        // ... autres conversions
-      ];
-      
-      return await this.updateRates(rates);
-      */
-      
-      console.log('Mise à jour des taux depuis API externe non implémentée');
-      return false;
+      // Exemple: utiliser exchangerate.host (gratuit, pas d'API key)
+      const resp = await fetch('https://api.exchangerate.host/latest?base=EUR');
+      if (!resp.ok) {
+        console.warn('fetchLiveRates: API responded with', resp.status);
+        return false;
+      }
+      const data = await resp.json();
+      const rates: Array<{ from: string, to: string, rate: number }> = [];
+      // On propose EUR->USD et EUR->CDF si présents
+      if (data && data.rates) {
+        if (data.rates.USD) rates.push({ from: 'EUR', to: 'USD', rate: Number(data.rates.USD) });
+        if (data.rates.CDF) rates.push({ from: 'EUR', to: 'CDF', rate: Number(data.rates.CDF) });
+        // Ajouter conversions inverses approximatives
+        for (const r of [...rates]) {
+          if (r.rate && r.rate > 0) {
+            const inv = 1 / r.rate;
+            rates.push({ from: r.to, to: r.from, rate: Number(inv) });
+          }
+        }
+      }
+
+      // Ne pas appliquer automatiquement — retourner la proposition
+      // L'appelant peut décider d'appliquer via updateRates
+      // Stocker temporairement dans le cache pour consultation
+      for (const r of rates) {
+        const key = `${r.from.toUpperCase()}_${r.to.toUpperCase()}`;
+        this.cacheRates.set(key, { rate: r.rate, timestamp: Date.now() });
+      }
+
+      return true;
     } catch (error) {
       console.error('Erreur récupération taux live:', error);
       return false;
     }
+  }
+
+  /**
+   * Recharger le cache interne (clear + préfetch optionnel)
+   */
+  async reloadCache() {
+    this.cacheRates.clear();
+    // Précharger paires communes
+    const pairs = [ ['EUR','USD'], ['EUR','CDF'], ['USD','EUR'], ['USD','CDF'], ['CDF','EUR'], ['CDF','USD'] ];
+    for (const [from,to] of pairs) {
+      try {
+        const r = await this.getRate(from, to);
+        // getRate remplira le cache
+      } catch (err) {
+        // ignore
+      }
+    }
+  }
+
+  /**
+   * Retourne les propositions actuellement en cache (générées par fetchLiveRates)
+   */
+  getCachedProposals() {
+    const out: Array<{ from: string; to: string; rate: number; timestamp: number }> = [];
+    for (const [k, v] of this.cacheRates.entries()) {
+      const [from, to] = k.split('_');
+      out.push({ from, to, rate: v.rate, timestamp: v.timestamp });
+    }
+    return out;
+  }
+
+  /**
+   * Appliquer une liste de propositions (utilisé par admin)
+   */
+  async applyProposals(proposals: Array<{ from: string; to: string; rate: number }>) {
+    return await this.updateRates(proposals.map(p => ({ from: p.from, to: p.to, rate: p.rate })));
   }
 
   /**

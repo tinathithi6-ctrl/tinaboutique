@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import apiFetch from '@/lib/api';
 
 interface CartItem {
   id: string;
@@ -54,25 +55,29 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     }
 
     try {
-      const response = await fetch('http://localhost:3001/api/cart', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const formattedItems = data.map((item: any) => ({
-          id: item.product_id.toString(),
-          name: item.name,
-          price: item.price_eur,
-          image: item.image_url,
-          quantity: item.quantity,
-          product_id: item.product_id
-        }));
-        setCartItems(formattedItems);
+      const data = await apiFetch('/api/cart', { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }) as any;
+      if (!data) {
+        setCartItems([]);
+        return;
       }
+
+      // Accept either an array or an object { rows: [...] }
+      const itemsArray = Array.isArray(data) ? data : (Array.isArray(data.rows) ? data.rows : null);
+      if (!itemsArray) {
+        console.warn('loadCart: unexpected /api/cart response shape', data);
+        setCartItems([]);
+        return;
+      }
+
+      const formattedItems = itemsArray.map((item: any) => ({
+        id: item.product_id.toString(),
+        name: item.name,
+        price: item.price_eur,
+        image: item.image_url,
+        quantity: item.quantity,
+        product_id: item.product_id
+      }));
+      setCartItems(formattedItems);
     } catch (error) {
       console.error('Erreur lors du chargement du panier:', error);
     }
@@ -113,21 +118,8 @@ export const CartProvider = ({ children }: CartProviderProps) => {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/cart', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          product_id: parseInt(item.id),
-          quantity
-        })
-      });
-
-      if (response.ok) {
-        await loadCart(); // Recharger le panier
-      }
+      await apiFetch('/api/cart', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ product_id: parseInt(item.id), quantity }) });
+      await loadCart();
     } catch (error) {
       console.error('Erreur lors de l\'ajout au panier:', error);
     } finally {
@@ -143,16 +135,8 @@ export const CartProvider = ({ children }: CartProviderProps) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3001/api/cart/${itemId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        await loadCart();
-      }
+      await apiFetch(`/api/cart/${itemId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      await loadCart();
     } catch (error) {
       console.error('Erreur lors de la suppression du panier:', error);
     } finally {
@@ -174,18 +158,8 @@ export const CartProvider = ({ children }: CartProviderProps) => {
 
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:3001/api/cart/${itemId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ quantity })
-      });
-
-      if (response.ok) {
-        await loadCart();
-      }
+      await apiFetch(`/api/cart/${itemId}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ quantity }) });
+      await loadCart();
     } catch (error) {
       console.error('Erreur lors de la mise à jour du panier:', error);
     } finally {
@@ -201,16 +175,8 @@ export const CartProvider = ({ children }: CartProviderProps) => {
 
     try {
       setLoading(true);
-      const response = await fetch('http://localhost:3001/api/cart', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        setCartItems([]);
-      }
+      await apiFetch('/api/cart', { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+      setCartItems([]);
     } catch (error) {
       console.error('Erreur lors du vidage du panier:', error);
     } finally {
@@ -230,14 +196,7 @@ export const CartProvider = ({ children }: CartProviderProps) => {
       // Envoyer tous les items en une seule requête au endpoint de merge côté serveur
       const payload = items.map(i => ({ product_id: parseInt(i.id, 10), quantity: i.quantity }));
 
-      await fetch('http://localhost:3001/api/cart/merge', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ items: payload })
-      });
+      await apiFetch('/api/cart/merge', { method: 'POST', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ items: payload }) });
 
       // Nettoyer le localStorage et recharger le panier depuis la DB
       localStorage.removeItem('cart');

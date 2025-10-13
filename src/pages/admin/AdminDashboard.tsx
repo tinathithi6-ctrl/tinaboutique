@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -63,8 +64,12 @@ const AdminDashboard: React.FC = () => {
     const fetchData = async () => {
       try {
         // Vérifier si les tables existent avant de faire les requêtes
-        const tableCheck = await fetch('http://localhost:3001/api/admin/orders?limit=1');
-        const tablesExist = tableCheck.ok;
+        let tablesExist = true;
+        try {
+          await apiFetch('/api/admin/orders?limit=1');
+        } catch (err) {
+          tablesExist = false;
+        }
 
         if (!tablesExist) {
           // Si les tables n'existent pas, afficher des données vides
@@ -79,23 +84,13 @@ const AdminDashboard: React.FC = () => {
           return;
         }
 
-        const [summaryRes, monthlyRes, loyalCustomersRes, paymentLogsRes, paymentStatsRes] = await Promise.all([
-          fetch('http://localhost:3001/api/admin/reports/sales-summary'),
-          fetch('http://localhost:3001/api/admin/reports/monthly-sales'),
-          fetch('http://localhost:3001/api/admin/reports/loyal-customers'),
-          fetch('http://localhost:3001/api/admin/payment-logs?limit=10'),
-          fetch('http://localhost:3001/api/admin/payment-stats'),
-        ]);
-
-        const summaryData = summaryRes.ok ? await summaryRes.json() : {
-          total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' },
-          total_orders: 0,
-          total_products_sold: 0
-        };
-        const monthlyData = monthlyRes.ok ? await monthlyRes.json() : [];
-        const loyalCustomersData = loyalCustomersRes.ok ? await loyalCustomersRes.json() : [];
-        const paymentLogsData = paymentLogsRes.ok ? await paymentLogsRes.json() : [];
-        const paymentStatsData = paymentStatsRes.ok ? await paymentStatsRes.json() : null;
+        const [summaryData, monthlyData, loyalCustomersData, paymentLogsData, paymentStatsData] = await Promise.all([
+          apiFetch('/api/admin/reports/sales-summary').catch(() => ({ total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' }, total_orders: 0, total_products_sold: 0 })),
+          apiFetch('/api/admin/reports/monthly-sales').catch(() => []),
+          apiFetch('/api/admin/reports/loyal-customers').catch(() => []),
+          apiFetch('/api/admin/payment-logs?limit=10').catch(() => []),
+          apiFetch('/api/admin/payment-stats').catch(() => null),
+        ] as any);
 
         setSummary(summaryData);
         setMonthlyData(monthlyData);

@@ -15,9 +15,8 @@ const Boutique = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/categories');
-        const data = await response.json();
-        setCategories(data);
+        const data = await (await import('@/lib/api')).apiFetch('/api/categories');
+        setCategories(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Failed to fetch categories:', error);
       }

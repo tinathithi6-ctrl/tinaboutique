@@ -65,10 +65,11 @@ const generalLimiter = rateLimit({
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: string;
-        role: string;
-      };
+        user?: {
+          id: string;
+          role: string;
+          email?: string;
+        };
     }
   }
 }
@@ -85,14 +86,15 @@ const authenticateToken = async (req: express.Request, res: express.Response, ne
     const decoded = jwt.verify(token, JWT_SECRET) as any;
 
     // Vérifier si l'utilisateur existe toujours
-    const userResult = await pool.query('SELECT id, role FROM users WHERE id = $1', [decoded.userId]);
+    const userResult = await pool.query('SELECT id, role, email FROM users WHERE id = $1', [decoded.userId]);
     if (userResult.rows.length === 0) {
       return res.status(401).json({ error: 'Utilisateur non trouvé' });
     }
 
     req.user = {
       id: decoded.userId,
-      role: userResult.rows[0].role
+      role: userResult.rows[0].role,
+      email: userResult.rows[0].email
     };
     next();
   } catch (error) {
@@ -1773,19 +1775,51 @@ app.post('/api/payments/webhook/:provider', async (req, res) => {
 
 // Endpoint pour créer une commande
 app.post('/api/orders', authenticateToken, async (req, res) => {
-  const { user_id, total_amount, shipping_address, customer_info, items, currency, promo_code } = req.body;
+  // Contract: client may send items array and desired currency. Server recalculates totals in EUR then converts.
+  const { shipping_address, customer_info, items, currency = 'EUR', promo_code } = req.body;
 
-  if (!user_id || !total_amount || !shipping_address || !customer_info || !items || items.length === 0) {
+  if (!shipping_address || !customer_info || !items || !Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Données de commande incomplètes.' });
   }
+
+  const userId = parseInt((req.user && req.user.id) as any, 10);
+  if (!userId) return res.status(401).json({ error: 'Utilisateur non authentifié.' });
 
   const client = await pool.connect();
 
   try {
     await client.query('BEGIN');
 
-    // Calculer la réduction si code promo
-    let discount_amount = 0;
+    // Recalculer les totaux côté serveur en EUR
+    let items_total_eur = 0;
+    const itemDetails: Array<any> = [];
+
+    for (const it of items) {
+      const productRes = await client.query('SELECT * FROM products WHERE id = $1 FOR UPDATE', [it.id]);
+      if (productRes.rows.length === 0) {
+        throw new Error(`Produit introuvable: ${it.id}`);
+      }
+
+      const product = productRes.rows[0];
+      const qty = parseInt(it.quantity, 10) || 1;
+
+      // Vérifier le stock
+      const available = parseInt(product.stock_quantity, 10);
+      if (available < qty) {
+        throw new Error(`Stock insuffisant pour le produit ${it.id}. Disponible: ${available}, demandé: ${qty}`);
+      }
+
+      // Calculer le prix unitaire effectif en EUR côté serveur
+      const pricing = calculateProductPrice(product, qty);
+      const unit_price_eur = pricing.finalPrice; // prix par unité en EUR
+
+      items_total_eur += unit_price_eur * qty;
+
+      itemDetails.push({ product, qty, unit_price_eur, image_url: product.images?.[0] || null });
+    }
+
+    // Calculer la réduction en EUR si code promo
+    let discount_amount_eur = 0;
     if (promo_code) {
       const promoResult = await client.query(
         'SELECT * FROM promo_codes WHERE code = $1 AND is_active = true AND (valid_until IS NULL OR valid_until > NOW())',
@@ -1794,56 +1828,55 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 
       if (promoResult.rows.length > 0) {
         const promo = promoResult.rows[0];
-        discount_amount = (total_amount * promo.discount_percentage) / 100;
+        discount_amount_eur = (items_total_eur * promo.discount_percentage) / 100;
       }
     }
 
-    const final_amount = total_amount - discount_amount;
+    const final_amount_eur = Math.max(0, items_total_eur - discount_amount_eur);
 
-    // Insérer dans la table 'orders'
+    // Convertir dans les devises supportées
+    const converted = await currencyService.convertToAll(final_amount_eur, 'EUR');
+    const currencyUpper = (currency || 'EUR').toUpperCase();
+    const total_in_currency = currencyUpper === 'EUR' ? converted.eur : currencyUpper === 'USD' ? converted.usd : converted.cdf;
+
+    // Insérer dans la table 'orders' en enregistrant les montants dans chaque devise
     const orderQuery = `
-      INSERT INTO orders (user_id, total_amount, shipping_address, customer_info, status, currency)
-      VALUES ($1, $2, $3, $4, 'pending', $5)
+      INSERT INTO orders (user_id, total_amount, amount_eur, amount_usd, amount_cdf, shipping_address, customer_info, status, currency)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8)
       RETURNING id;
     `;
-    const orderValues = [user_id, final_amount, shipping_address, customer_info, currency];
+    const orderValues = [userId, total_in_currency, converted.eur, converted.usd, converted.cdf, shipping_address, customer_info, currencyUpper];
     const orderResult = await client.query(orderQuery, orderValues);
     const orderId = orderResult.rows[0].id;
 
-    // Insérer dans la table 'order_items' et vérifier le stock atomiquement
+    // Insérer order_items et décrémenter le stock (déjà locké via FOR UPDATE)
     const itemQuery = `
       INSERT INTO order_items (order_id, product_id, name, quantity, price, image_url, currency)
       VALUES ($1, $2, $3, $4, $5, $6, $7);
     `;
 
-    for (const item of items) {
-      // Vérifier la disponibilité du stock
-      const stockRes = await client.query('SELECT stock_quantity FROM products WHERE id = $1 FOR UPDATE', [item.id]);
-      if (stockRes.rows.length === 0) {
-        throw new Error(`Produit introuvable: ${item.id}`);
-      }
-      const available = parseInt(stockRes.rows[0].stock_quantity, 10);
-      if (available < item.quantity) {
-        throw new Error(`Stock insuffisant pour le produit ${item.id}. Disponible: ${available}, demandé: ${item.quantity}`);
-      }
-
+    for (const d of itemDetails) {
       // Décrémenter le stock
-      await client.query('UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2', [item.quantity, item.id]);
+      await client.query('UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2', [d.qty, d.product.id]);
 
-      const itemValues = [orderId, item.id, item.name, item.quantity, item.price, item.image_url, currency];
+      const price_in_currency = await currencyService.convert(d.unit_price_eur, 'EUR', currencyUpper);
+      const itemValues = [orderId, d.product.id, d.product.name, d.qty, price_in_currency, d.image_url, currencyUpper];
       await client.query(itemQuery, itemValues);
     }
 
     // Vider le panier après la commande
-    await client.query('DELETE FROM cart_items WHERE user_id = $1', [user_id]);
+    await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
 
     await client.query('COMMIT');
     res.status(201).json({
       message: 'Commande créée avec succès',
       orderId,
-      discount_applied: discount_amount > 0,
-      discount_amount,
-      final_amount
+      discount_applied: discount_amount_eur > 0,
+      discount_amount_eur,
+      final_amount_eur,
+      amounts: converted,
+      currency: currencyUpper,
+      total_in_currency
     });
 
   } catch (error) {
@@ -1954,22 +1987,162 @@ app.get('/api/admin/currency-rates', authenticateToken, requireAdmin, async (req
   }
 });
 
+// Historique des modifications
+app.get('/api/admin/currency-rates/history', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM currency_rate_history ORDER BY created_at DESC LIMIT 200`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Erreur récupération historique taux:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Propositions en cache (issues du scheduler/fetchLiveRates)
+app.get('/api/admin/currency-rates/proposals', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const proposals = currencyService.getCachedProposals();
+    res.json(proposals);
+  } catch (err) {
+    console.error('Erreur récupération propositions:', err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Appliquer des propositions (admin)
+app.post('/api/admin/currency-rates/apply', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { proposals, reason } = req.body;
+    if (!Array.isArray(proposals) || proposals.length === 0) return res.status(400).json({ error: 'Proposals invalides' });
+
+    // Appliquer dans une transaction et écrire l'historique
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const p of proposals) {
+        const from = (p.from as string).toUpperCase();
+        const to = (p.to as string).toUpperCase();
+        const numeric = Number(p.rate);
+
+        const oldRow = await client.query('SELECT rate FROM currency_rates WHERE base_currency = $1 AND target_currency = $2 FOR UPDATE', [from, to]);
+        const oldRate = oldRow.rows.length ? oldRow.rows[0].rate : null;
+
+        await client.query(`
+          INSERT INTO currency_rates (base_currency, target_currency, rate, updated_at)
+          VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+          ON CONFLICT (base_currency, target_currency) DO UPDATE SET rate = EXCLUDED.rate, updated_at = CURRENT_TIMESTAMP
+        `, [from, to, numeric]);
+
+        // écrire historique
+        await client.query(`INSERT INTO currency_rate_history (admin_user_id, admin_email, base_currency, target_currency, old_rate, new_rate, change_reason, metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`, [req.user ? Number(req.user.id) : null, (req.user && (req.user as any).email) || null, from, to, oldRate, numeric, reason || 'apply_proposals', JSON.stringify({ applied_by_ip: req.ip })]);
+      }
+      await client.query('COMMIT');
+      await currencyService.reloadCache();
+      res.json({ success: true });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Erreur apply proposals:', err);
+      res.status(500).json({ error: 'Erreur lors de l\'application des propositions' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.put('/api/admin/currency-rates', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { rates } = req.body;
-    const success = await currencyService.updateRates(rates);
-    
-    if (success) {
-      await logAction(req, ActionTypes.ADMIN_LOGIN, 'Mise à jour des taux de change', { rates });
+    const { rates, reason } = req.body;
+    if (!Array.isArray(rates) || rates.length === 0) return res.status(400).json({ error: 'Rates invalides' });
+
+    // Validation basique: taux positifs et non nuls
+    for (const r of rates) {
+      const { from, to, rate } = r;
+      if (!from || !to || typeof rate === 'undefined') return res.status(400).json({ error: 'Format rate invalide' });
+      const numeric = Number(rate);
+      if (isNaN(numeric) || numeric <= 0) return res.status(400).json({ error: 'Les taux doivent être des nombres > 0' });
+      // Optional: sanity check large variation (par ex. 50% par rapport à DB)
+      const current = await currencyService.getRate((from as string).toUpperCase(), (to as string).toUpperCase());
+      if (current) {
+        const changePct = Math.abs((numeric - Number(current)) / Number(current));
+        if (changePct > 2) { // 200% change unexpectedly large
+          return res.status(400).json({ error: `Variation trop grande pour ${from}->${to}. Utilisez un contrôle manuel.` });
+        }
+      }
+    }
+
+    // Mise à jour et audit dans une transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      for (const r of rates) {
+        const from = (r.from as string).toUpperCase();
+        const to = (r.to as string).toUpperCase();
+        const numeric = Number(r.rate);
+
+        // Lire l'ancien taux
+        const oldRow = await client.query('SELECT rate FROM currency_rates WHERE base_currency = $1 AND target_currency = $2 FOR UPDATE', [from, to]);
+        const oldRate = oldRow.rows.length ? oldRow.rows[0].rate : null;
+
+        // Upsert nouveau taux
+        await client.query(`
+          INSERT INTO currency_rates (base_currency, target_currency, rate, updated_at)
+          VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+          ON CONFLICT (base_currency, target_currency) DO UPDATE SET rate = EXCLUDED.rate, updated_at = CURRENT_TIMESTAMP
+        `, [from, to, numeric]);
+
+        // Insérer historique
+        await client.query(`
+          INSERT INTO currency_rate_history (admin_user_id, admin_email, base_currency, target_currency, old_rate, new_rate, change_reason, metadata)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `, [req.user ? Number(req.user.id) : null, (req.user && (req.user as any).email) || null, from, to, oldRate, numeric, reason || null, JSON.stringify({ updated_by_ip: req.ip })]);
+      }
+
+      await client.query('COMMIT');
+
+      // Recharger le cache interne du service
+      await currencyService.reloadCache();
+
+      await logAction(req, ActionTypes.ADMIN_LOGIN, 'Mise à jour des taux de change (manuelle)', { rates, reason });
       res.json({ success: true });
-    } else {
-      res.status(500).json({ error: 'Erreur mise à jour' });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Erreur transaction mise à jour taux:', err);
+      res.status(500).json({ error: 'Erreur lors de la mise à jour des taux' });
+    } finally {
+      client.release();
     }
   } catch (error) {
     console.error('Erreur mise à jour taux:', error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 });
+
+// Scheduler: proposer la mise à jour des taux toutes les 12 heures (non appliquée automatiquement)
+async function scheduleFetchLiveRates() {
+  try {
+    const ok = await currencyService.fetchLiveRates();
+    if (ok) {
+      // Construire une notification admin pour revoir les taux proposés
+      const message = 'Nouvelles propositions de taux récupérées automatiquement. Vérifiez et appliquez depuis la page Admin.';
+      await pool.query(`INSERT INTO admin_notifications (type, title, message, severity, metadata) VALUES ($1,$2,$3,$4,$5)`, ['currency', 'Propositions taux de change', message, 'info', JSON.stringify({ when: new Date().toISOString() })]);
+      console.log('Scheduler: propositions de taux créées (admin review)');
+    }
+  } catch (err) {
+    console.error('Scheduler erreur fetchLiveRates:', err);
+  }
+}
+
+// Lancer le scheduler si en production ou si variable d'env explicitement activée
+if (process.env.ENABLE_CURRENCY_SCHEDULER === 'true' || process.env.NODE_ENV === 'production') {
+  // Première exécution au démarrage
+  scheduleFetchLiveRates();
+  // Toutes les 12 heures
+  setInterval(scheduleFetchLiveRates, 12 * 60 * 60 * 1000);
+}
 
 // Route - Sélection devise utilisateur
 app.get('/api/user/currency', authenticateToken, async (req, res) => {
@@ -1996,6 +2169,25 @@ app.put('/api/user/currency', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Erreur sauvegarde devise:', error);
     res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+// Endpoint public de conversion simple (client-side peut l'utiliser)
+app.get('/api/convert', async (req, res) => {
+  try {
+    const { amount, from = 'EUR', to } = req.query;
+    if (!amount || !to) return res.status(400).json({ error: 'amount et to sont requis' });
+
+    const numeric = parseFloat(amount as string);
+    if (isNaN(numeric)) return res.status(400).json({ error: 'amount invalide' });
+
+    const rate = await currencyService.getRate((from as string).toUpperCase(), (to as string).toUpperCase());
+    const converted = numeric * rate;
+
+    res.json({ amount: converted, currency: (to as string).toUpperCase(), rate });
+  } catch (error) {
+    console.error('Erreur conversion:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur' });
   }
 });
 

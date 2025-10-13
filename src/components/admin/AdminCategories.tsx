@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Pencil, Trash2, Plus } from "lucide-react";
+import apiFetch from '@/lib/api';
 
 export const AdminCategories = () => {
   const { t } = useTranslation();
@@ -39,8 +40,8 @@ export const AdminCategories = () => {
 
     try {
       const url = editingCategory
-        ? `http://localhost:3001/api/admin/categories/${editingCategory.id}`
-        : 'http://localhost:3001/api/admin/categories';
+  ? `/api/admin/categories/${editingCategory.id}`
+  : '/api/admin/categories';
       const method = editingCategory ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -74,10 +75,7 @@ export const AdminCategories = () => {
     if (!confirm(t("admin.categories.confirmDelete"))) return;
 
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/categories/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to delete category');
+  await apiFetch(`/api/admin/categories/${id}`, { method: 'DELETE' } as any);
       toast.success(t("admin.categories.deleted"));
       refetch();
     } catch (error) {

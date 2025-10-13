@@ -25,6 +25,8 @@
     "paths": {
       "@/*": ["./src/*"]
     }
+    ,
+    "types": ["vitest"]
   },
   "include": ["src"]
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import apiFetch from '@/lib/api';
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -36,11 +37,9 @@ export const AdminOrders = () => {
   const fetchOrders = async () => {
     try {
       // Version simplifiée pour commencer
-      const response = await fetch('http://localhost:3001/api/admin/orders');
-      if (!response.ok) throw new Error('Failed to fetch orders');
-      const data = await response.json();
-      setOrders(data || []);
-      setFilteredOrders(data || []);
+  const data = await apiFetch('/api/admin/orders') as any[];
+      setOrders(Array.isArray(data) ? data : []);
+      setFilteredOrders(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching orders:", error);
       toast.error(t("admin.orders.error"));
@@ -50,17 +49,8 @@ export const AdminOrders = () => {
   const fetchStatistics = async () => {
     try {
       // Version simplifiée - juste les stats de base
-      const salesSummary = await fetch('http://localhost:3001/api/admin/reports/sales-summary');
-      const salesData = salesSummary.ok ? await salesSummary.json() : {
-        total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' },
-        total_orders: 0,
-        total_products_sold: 0
-      };
-
-      setStatistics({
-        salesSummary: salesData,
-        ordersByCategory: []
-      });
+  const salesData = await apiFetch('/api/admin/reports/sales-summary').catch(() => ({ total_revenue: { total_eur: '0', total_usd: '0', total_cdf: '0' }, total_orders: 0, total_products_sold: 0 }));
+      setStatistics({ salesSummary: salesData, ordersByCategory: [] });
       setTopProducts([]);
     } catch (error) {
       console.error("Error fetching statistics:", error);
@@ -78,9 +68,8 @@ export const AdminOrders = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/categories');
-      const data = await response.json();
-      setCategories(data || []);
+  const data = await apiFetch('/api/categories') as any[];
+      setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching categories:", error);
     }
@@ -101,12 +90,7 @@ export const AdminOrders = () => {
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/orders/${orderId}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!response.ok) throw new Error('Failed to update order status');
+  await apiFetch(`/api/admin/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }) } as any);
       toast.success(t("admin.orders.statusUpdated"));
       fetchOrders();
       fetchStatistics();
@@ -344,12 +328,21 @@ export const AdminOrders = () => {
                   {topProducts.map((product: any) => (
                     <TableRow key={product.id}>
                       <TableCell>
-                        <img
-                          src={product.image_url ? `http://localhost:3001${product.image_url}` : '/placeholder.svg'}
-                          alt={product.name}
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                      </TableCell>
+                          <img
+                            src={(() => {
+                              const url = product.image_url || '';
+                              if (!url) return '/placeholder.svg';
+                              if (url.startsWith('http')) return url;
+                              if (url.startsWith('/uploads/')) {
+                                const base = (import.meta.env.VITE_API_URL as string) || (import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '');
+                                return `${base}${url}`;
+                              }
+                              return url;
+                            })()}
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        </TableCell>
                       <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.category_name}</TableCell>
                       <TableCell>€{product.price_eur}</TableCell>

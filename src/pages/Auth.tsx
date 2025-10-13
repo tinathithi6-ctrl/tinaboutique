@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext"; // Importer le hook d'authentification
 import { useCart } from "@/contexts/CartContext";
+import apiFetch from '@/lib/api';
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 
@@ -51,19 +52,19 @@ const Auth = () => {
         password: formData.password,
       });
 
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validated),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur de connexion');
-      }
+      const data = await apiFetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validated) }) as any;
 
       setAuthData(data.user, data.token); // Mettre à jour le contexte
+      // Persister la devise préférée si sauvegardée localement
+      try {
+        const localCurrency = localStorage.getItem('tb_currency');
+        if (localCurrency) {
+          await apiFetch('/api/user/currency', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${data.token}` }, body: JSON.stringify({ currency: localCurrency }) });
+        }
+      } catch (err) {
+        console.error('Erreur sauvegarde devise utilisateur après login:', err);
+      }
+
       // Fusionner le panier local dans la DB si présent
       try {
         await mergeLocalCart();
@@ -105,29 +106,23 @@ const Auth = () => {
     try {
       const validated = signupSchema(t).parse(formData);
 
-      const response = await fetch('http://localhost:3001/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validated),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Erreur lors de l\'inscription.');
-      }
+      const data = await apiFetch('/api/auth/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(validated) }) as any;
 
       // Auto-login after successful signup
-      const loginResponse = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: validated.email, password: validated.password }),
-      });
+      const loginData = await apiFetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: validated.email, password: validated.password }) }) as any;
 
-      const loginData = await loginResponse.json();
+  if (loginData && loginData.token) {
+  setAuthData(loginData.user, loginData.token);
+        // Persister la devise préférée si sauvegardée localement
+        try {
+          const localCurrency = localStorage.getItem('tb_currency');
+          if (localCurrency) {
+            await apiFetch('/api/user/currency', { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${loginData.token}` }, body: JSON.stringify({ currency: localCurrency }) });
+          }
+        } catch (err) {
+          console.error('Erreur sauvegarde devise utilisateur après signup:', err);
+        }
 
-        if (loginResponse.ok) {
-        setAuthData(loginData.user, loginData.token);
         // Fusionner le panier local dans la DB après auto-login
         try {
           await mergeLocalCart();

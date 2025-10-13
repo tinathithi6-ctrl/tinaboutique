@@ -1,6 +1,7 @@
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/CartContext';
@@ -26,11 +27,8 @@ const FeaturedProducts = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/products');
-        if (!response.ok) {
-          throw new Error('Erreur lors du chargement des produits');
-        }
-        const data = await response.json();
+        const data = await apiFetch('/api/products');
+        setProducts(Array.isArray(data) ? data.slice(0, 8) : []);
         // On ne prend que les 8 premiers produits pour la page d'accueil
         setProducts(data.slice(0, 8));
       } catch (err) {

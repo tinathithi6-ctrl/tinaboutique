@@ -7,8 +7,8 @@ interface ProductCardProps {
   image: string;
   name: string;
   category: string;
-  price: string;
-  originalPrice?: string;
+  price: string; // formatted
+  originalPrice?: string; // formatted
   discountApplied?: boolean;
   discountType?: string;
   onAddToCart?: () => void;
@@ -26,7 +26,8 @@ const ProductCard = ({ image, name, category, price, originalPrice, discountAppl
     }
     // Pour les images uploadées localement
     if (imagePath.startsWith('/uploads/')) {
-      return `http://localhost:3001${imagePath}`;
+      const base = (import.meta.env.VITE_API_URL as string) || (import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '');
+      return `${base}${imagePath}`;
     }
     // Fallback
     return imagePath;
@@ -126,11 +127,11 @@ const ProductCard = ({ image, name, category, price, originalPrice, discountAppl
         <div className="flex items-center gap-2">
           {discountApplied && originalPrice && (
             <span className="text-sm text-muted-foreground line-through">
-              {originalPrice}€
+              {originalPrice}
             </span>
           )}
           <p className={`text-xl font-medium ${discountApplied ? 'text-red-600' : 'text-card-foreground'}`}>
-            {price}€
+            {price}
           </p>
         </div>
       </div>

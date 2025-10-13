@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { KPICard } from '@/components/admin/KPICard';
@@ -57,53 +58,44 @@ const AdminDashboardPro = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      };
-
+      // Use centralized apiFetch which injects auth token automatically
       // ✅ 1. Récupérer les stats principales
-      const statsResponse = await fetch('http://localhost:3001/api/admin/dashboard/stats', { headers });
-      if (statsResponse.ok) {
-        const data = await statsResponse.json();
-        setStats(data);
+      try {
+  const data = await apiFetch('/api/admin/dashboard/stats');
+        setStats(data as DashboardStats);
+      } catch (e) {
+        // ignore, handled below
       }
 
       // ✅ 2. Récupérer ventes par jour (7 derniers jours)
-      const salesResponse = await fetch('http://localhost:3001/api/admin/sales-by-day?days=7', { headers });
-      if (salesResponse.ok) {
-        const data = await salesResponse.json();
-        setSalesData(data);
-      }
+      try {
+  const data = await apiFetch('/api/admin/sales-by-day?days=7');
+        setSalesData(Array.isArray(data) ? data : []);
+      } catch (e) {}
 
       // ✅ 3. Récupérer ventes par catégorie
-      const categoryResponse = await fetch('http://localhost:3001/api/admin/sales-by-category', { headers });
-      if (categoryResponse.ok) {
-        const data = await categoryResponse.json();
-        setCategoryData(data);
-      }
+      try {
+  const data = await apiFetch('/api/admin/sales-by-category');
+        setCategoryData(Array.isArray(data) ? data : []);
+      } catch (e) {}
 
       // ✅ 4. Récupérer méthodes de paiement
-      const paymentsResponse = await fetch('http://localhost:3001/api/admin/payment-methods-stats', { headers });
-      if (paymentsResponse.ok) {
-        const data = await salesResponse.json();
-        setPaymentMethodsData(data);
-      }
+      try {
+  const data = await apiFetch('/api/admin/payment-methods-stats');
+        setPaymentMethodsData(Array.isArray(data) ? data : []);
+      } catch (e) {}
 
       // ✅ 5. Récupérer dernières commandes
-      const ordersResponse = await fetch('http://localhost:3001/api/admin/recent-orders?limit=5', { headers });
-      if (ordersResponse.ok) {
-        const data = await ordersResponse.json();
-        setRecentOrders(data);
-      }
+      try {
+  const data = await apiFetch('/api/admin/recent-orders?limit=5');
+        setRecentOrders(Array.isArray(data) ? data : []);
+      } catch (e) {}
 
       // ✅ 6. Récupérer top produits
-      const productsResponse = await fetch('http://localhost:3001/api/admin/top-products?limit=4', { headers });
-      if (productsResponse.ok) {
-        const data = await productsResponse.json();
-        setTopProducts(data);
-      }
+      try {
+  const data = await apiFetch('/api/admin/top-products?limit=4');
+        setTopProducts(Array.isArray(data) ? data : []);
+      } catch (e) {}
 
     } catch (error) {
       console.error('Erreur chargement données:', error);

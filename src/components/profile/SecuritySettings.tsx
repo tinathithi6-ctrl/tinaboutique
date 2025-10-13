@@ -59,8 +59,6 @@ const SecuritySettings = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Validations
     if (!passwords.current || !passwords.new || !passwords.confirm) {
       toast({
         title: "Erreur",
@@ -91,38 +89,30 @@ const SecuritySettings = () => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/profile/password', {
+      await (await import('@/lib/api')).apiFetch('/api/profile/password', {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           currentPassword: passwords.current,
           newPassword: passwords.new,
-        })
+        }),
       });
 
-      if (response.ok) {
-        toast({
-          title: "✅ Succès",
-          description: "Votre mot de passe a été modifié avec succès",
-        });
-        setPasswords({ current: "", new: "", confirm: "" });
-        setPasswordStrength(0);
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Erreur",
-          description: error.message || "Mot de passe actuel incorrect",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Erreur:', error);
+      toast({
+        title: "✅ Succès",
+        description: "Votre mot de passe a été modifié avec succès",
+      });
+      setPasswords({ current: "", new: "", confirm: "" });
+      setPasswordStrength(0);
+    } catch (err: any) {
+      console.error('Erreur:', err);
+      const message = err?.body ? (typeof err.body === 'string' ? err.body : JSON.stringify(err.body)) : err?.message || 'Une erreur est survenue. Veuillez réessayer.';
       toast({
         title: "Erreur",
-        description: "Une erreur est survenue. Veuillez réessayer.",
+        description: message,
         variant: "destructive",
       });
     } finally {

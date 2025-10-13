@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import apiFetch from '@/lib/api';
 
 // Définir les types pour la clarté
 interface Category {
@@ -47,11 +48,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ productToEdit, onFormSubmit, 
 
   useEffect(() => {
     // Charger les catégories pour le menu déroulant
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('http://localhost:3001/api/categories');
-        const data = await response.json();
-        setCategories(data);
+        const fetchCategories = async () => {
+          try {
+            const data = await apiFetch('/api/categories');
+            setCategories(Array.isArray(data) ? data : []);
       } catch (err) {
         setError('Impossible de charger les catégories.');
       }
@@ -72,9 +72,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productToEdit, onFormSubmit, 
     if (product.category_id && product.category_id > 0) {
       const fetchExistingImages = async () => {
         try {
-          const response = await fetch(`http://localhost:3001/api/admin/images/${product.category_id}`);
-          const data = await response.json();
-          setExistingImages(data.images || []);
+            const data = await apiFetch(`/api/admin/images/${product.category_id}`);
+            setExistingImages(data.images || []);
         } catch (err) {
           console.error('Erreur lors du chargement des images existantes:', err);
         }
@@ -116,18 +115,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ productToEdit, onFormSubmit, 
     selectedFiles.forEach(file => {
       formData.append('images', file);
     });
-
-    const response = await fetch('http://localhost:3001/api/admin/upload-images', {
+    // apiFetch retourne déjà le JSON décodé si Content-Type est application/json
+  const data = await apiFetch('/api/admin/upload-images', {
       method: 'POST',
       body: formData,
-    });
-
-    if (!response.ok) {
-      throw new Error('Erreur lors de l\'upload des images');
-    }
-
-    const data = await response.json();
-    return data.images.map((img: any) => img.url);
+    } as any);
+    return (data && Array.isArray(data.images)) ? data.images.map((img: any) => img.url) : [];
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -152,19 +145,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ productToEdit, onFormSubmit, 
       };
 
       const method = productToEdit ? 'PUT' : 'POST';
-      const url = productToEdit
-        ? `http://localhost:3001/api/admin/products/${productToEdit.id}`
-        : 'http://localhost:3001/api/admin/products';
-
-      const response = await fetch(url, {
+      const path = productToEdit ? `/api/admin/products/${productToEdit.id}` : '/api/admin/products';
+  await apiFetch(path, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(productData),
-      });
-
-      if (!response.ok) {
-        throw new Error(productToEdit ? 'Erreur lors de la mise à jour du produit.' : 'Erreur lors de la création du produit.');
-      }
+      } as any);
 
       onFormSubmit(); // Rafraîchir la liste des produits
     } catch (err) {
@@ -290,7 +276,15 @@ const ProductForm: React.FC<ProductFormProps> = ({ productToEdit, onFormSubmit, 
                     {existingImages.map((image, index) => (
                       <div key={index} className="relative">
                         <img
-                          src={`http://localhost:3001${image.url}`}
+                          src={(() => {
+                            const url = image.url || '';
+                            if (url.startsWith('http')) return url;
+                            if (url.startsWith('/uploads/')) {
+                              const base = (import.meta.env.VITE_API_URL as string) || (import.meta.env.MODE === 'development' ? 'http://localhost:3001' : '');
+                              return `${base}${url}`;
+                            }
+                            return url;
+                          })()}
                           alt={`Image ${index + 1}`}
                           className={`w-full h-20 object-cover rounded cursor-pointer border-2 ${
                             selectedExistingImages.includes(image.url) ? 'border-blue-500' : 'border-gray-300'

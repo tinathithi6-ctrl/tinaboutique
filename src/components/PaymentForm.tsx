@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import apiFetch from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -75,39 +76,11 @@ export const PaymentForm = ({
     setLoading(true);
     try {
       // Créer l'intent de paiement
-      const intentResponse = await fetch('http://localhost:3001/api/payments/create-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          currency,
-          orderId,
-          paymentMethod: 'flutterwave', // ou autre fournisseur
-          metadata: { cardLast4: cardData.number.slice(-4) }
-        })
-      });
-
-      if (!intentResponse.ok) throw new Error('Erreur lors de la création du paiement');
-
-      const { intentId } = await intentResponse.json();
+  const intentRes = await apiFetch('/api/payments/create-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, currency, orderId, paymentMethod: 'flutterwave', metadata: { cardLast4: cardData.number.slice(-4) } }) } as any) as any;
+      const { intentId } = intentRes;
 
       // Traiter le paiement avec Flutterwave
-      const paymentResponse = await fetch('http://localhost:3001/api/payments/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          intentId,
-          paymentData: {
-            card_number: cardData.number.replace(/\s/g, ''),
-            expiry_month: cardData.expiry.split('/')[0],
-            expiry_year: cardData.expiry.split('/')[1],
-            cvv: cardData.cvv,
-            card_holder: cardData.name
-          }
-        })
-      });
-
-      const result = await paymentResponse.json();
+  const result = await apiFetch('/api/payments/process', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId, paymentData: { card_number: cardData.number.replace(/\s/g, ''), expiry_month: cardData.expiry.split('/')[0], expiry_year: cardData.expiry.split('/')[1], cvv: cardData.cvv, card_holder: cardData.name } }) } as any) as any;
 
       if (result.success) {
         onPaymentSuccess(result.transactionId);
@@ -145,19 +118,7 @@ export const PaymentForm = ({
     setLoading(true);
     try {
       // Logique de paiement mobile money
-      const response = await fetch('http://localhost:3001/api/payments/mobile-money', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          currency,
-          orderId,
-          phone: mobileData.phone,
-          provider: mobileData.provider
-        })
-      });
-
-      const result = await response.json();
+  const result = await apiFetch('/api/payments/mobile-money', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, currency, orderId, phone: mobileData.phone, provider: mobileData.provider }) } as any) as any;
 
       if (result.success) {
         onPaymentSuccess(result.transactionId);
@@ -186,17 +147,7 @@ export const PaymentForm = ({
     setLoading(true);
     try {
       // Générer les instructions de virement
-      const response = await fetch('http://localhost:3001/api/payments/bank-transfer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          currency,
-          orderId
-        })
-      });
-
-      const result = await response.json();
+  const result = await apiFetch('/api/payments/bank-transfer', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amount, currency, orderId }) } as any) as any;
 
       if (result.success) {
         onPaymentSuccess(result.transactionId);

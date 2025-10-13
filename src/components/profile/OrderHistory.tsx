@@ -24,20 +24,8 @@ const OrderHistory = () => {
       if (!user || !token) return;
 
       try {
-        const response = await fetch('http://localhost:3001/api/orders', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setOrders(data);
-        } else {
-          // Données de démonstration si pas de commandes
-          setOrders([]);
-        }
+        const data = await (await import('@/lib/api')).apiFetch('/api/orders') as any[];
+        setOrders(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error('Erreur lors du chargement des commandes:', error);
         setOrders([]);

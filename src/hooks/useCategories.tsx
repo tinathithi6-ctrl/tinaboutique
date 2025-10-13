@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import apiFetch from '@/lib/api';
 
 export interface Category {
   id: string;
@@ -11,10 +12,9 @@ export interface Category {
 export const useCategories = () => {
   return useQuery({
     queryKey: ["categories"],
-    queryFn: async () => {
-      const response = await fetch('http://localhost:3001/api/categories');
-      if (!response.ok) throw new Error('Failed to fetch categories');
-      return response.json() as Promise<Category[]>;
+    queryFn: async (): Promise<Category[]> => {
+      const data = await apiFetch('/api/categories');
+      return Array.isArray(data) ? (data as Category[]) : [];
     },
   });
 };

@@ -23,17 +23,14 @@ const SearchPage = () => {
 
   useEffect(() => {
     // Charger tous les produits au montage
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('http://localhost:3001/api/products');
-        if (response.ok) {
-          const data = await response.json();
-          setAllProducts(data);
-        }
-      } catch (error) {
-        console.error('Erreur lors du chargement des produits:', error);
-      }
-    };
+        const fetchProducts = async () => {
+          try {
+            const data = await (await import('@/lib/api')).apiFetch('/api/products');
+            setAllProducts(Array.isArray(data) ? data : []);
+          } catch (error) {
+            console.error('Erreur lors du chargement des produits:', error);
+          }
+        };
 
     fetchProducts();
   }, []);

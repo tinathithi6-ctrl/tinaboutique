@@ -18,6 +18,7 @@ import AddressManager from "@/components/profile/AddressManager";
 import PreferencesPanel from "@/components/profile/PreferencesPanel";
 import { useUserStats } from "@/hooks/useUserStats";
 import { Loader2, User, MapPin, Phone, Mail } from "lucide-react";
+import apiFetch from '@/lib/api';
 
 interface ProfileData {
   full_name: string;
@@ -57,22 +58,12 @@ const Profile = () => {
     }
   }, [user, authLoading, navigate, location]);
 
-  useEffect(() => {
+    useEffect(() => {
     const fetchProfile = async () => {
       if (!user || !token) return;
 
       try {
-        const response = await fetch('http://localhost:3001/api/profile', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) throw new Error('Failed to fetch profile');
-
-        const data = await response.json();
-
+        const data = await apiFetch('/api/profile') as any;
         setProfileData({
           full_name: data.full_name || "",
           phone: data.phone || "",
@@ -105,26 +96,20 @@ const Profile = () => {
     fetchProfile();
   }, [user, toast]);
 
-  const handleSave = async () => {
+    const handleSave = async () => {
     if (!user || !token) return;
 
     setSaving(true);
     try {
-      const response = await fetch('http://localhost:3001/api/profile', {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          full_name: profileData.full_name,
-          phone: profileData.phone,
-          shipping_address: profileData.shipping_address,
-        })
+      await apiFetch('/api/profile', { 
+        method: 'PUT', 
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+          full_name: profileData.full_name, 
+          phone: profileData.phone, 
+          shipping_address: profileData.shipping_address, 
+        }) 
       });
-
-      if (!response.ok) throw new Error('Failed to update profile');
-
       toast({
         title: t("profile.toast.saveSuccess.title"),
         description: t("profile.toast.saveSuccess.description"),
@@ -161,12 +146,12 @@ const Profile = () => {
             tier={stats.tier}
           />
 
-          {/* Statistiques */}
+                              {/* Statistiques */}
           <ProfileStats
-            totalOrders={stats.totalOrders}
-            totalSpent={stats.totalSpent}
-            loyaltyPoints={stats.loyaltyPoints}
-            tier={stats.tier}
+            totalOrders={stats?.totalOrders || 0}
+            totalSpent={stats?.totalSpent || 0}
+            loyaltyPoints={stats?.loyaltyPoints || 0}
+            tier={stats?.tier || "bronze"}
           />
 
           {/* Onglets */}

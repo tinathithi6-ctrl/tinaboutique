@@ -13,11 +13,9 @@ export const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch('http://localhost:3001/api/admin/users');
-      if (!response.ok) throw new Error('Failed to fetch users');
-      const data = await response.json();
+    const fetchUsers = async () => {
+      try {
+        const data = await (await import('@/lib/api')).apiFetch('/api/admin/users') as any;
       setUsers(data);
     } catch (error) {
       console.error("Error fetching users:", error);
@@ -33,12 +31,11 @@ export const AdminUsers = () => {
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
-      const response = await fetch(`http://localhost:3001/api/admin/users/${userId}/role`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: newRole }),
-      });
-      if (!response.ok) throw new Error('Failed to update user role');
+        const res = await (await import('@/lib/api')).apiFetch(`/api/admin/users/${userId}/role`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: newRole }),
+        }) as any;
       toast.success(t("admin.users.roleUpdated"));
       fetchUsers();
     } catch (error) {

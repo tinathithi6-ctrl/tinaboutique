@@ -35,23 +35,14 @@ export const AdminAnalytics = () => {
 
   const fetchAbandonedCarts = async () => {
     try {
-      const [cartsResponse, statsResponse] = await Promise.all([
-        fetch('http://localhost:3001/api/admin/abandoned-carts'),
-        fetch('http://localhost:3001/api/admin/abandoned-carts/stats')
+      const api = await import('@/lib/api');
+      const [cartsData, statsData] = await Promise.all([
+        api.apiFetch('/api/admin/abandoned-carts') as any,
+        api.apiFetch('/api/admin/abandoned-carts/stats') as any,
       ]);
 
-      const cartsData = cartsResponse.ok ? await cartsResponse.json() : [];
-      const statsData = statsResponse.ok ? await statsResponse.json() : {
-        total_abandoned_carts: 0,
-        total_abandoned_value: 0,
-        carts_last_24h: 0,
-        carts_last_7d: 0,
-        carts_last_30d: 0,
-        avg_cart_age: 0
-      };
-
       // Transformer les données pour correspondre à l'interface
-      const formattedCarts: AbandonedCart[] = cartsData.map((cart: any) => ({
+      const formattedCarts: AbandonedCart[] = (cartsData || []).map((cart: any) => ({
         id: cart.id,
         user_id: cart.user_id,
         product_id: cart.product_id,

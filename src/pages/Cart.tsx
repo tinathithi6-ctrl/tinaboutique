@@ -7,6 +7,7 @@ import { toast } from 'react-toastify';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { useCart } from '@/contexts/CartContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 
 const Cart = () => {
   const { cartItems, updateQuantity, removeFromCart, clearCart } = useCart();
@@ -41,6 +42,7 @@ const Cart = () => {
   const tax = subtotal * 0.1;
   const discount = 0; // La logique de réduction sera ajoutée plus tard
   const total = subtotal + shippingCost + tax - discount;
+  const { format } = useCurrency();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -123,7 +125,7 @@ const Cart = () => {
 
                         {/* Price */}
                         <div className="lg:col-span-2 text-center">
-                          <span className="text-lg font-semibold text-gray-900">{item.price.toFixed(2)}€</span>
+                          <span className="text-lg font-semibold text-gray-900">{format(item.price)}</span>
                         </div>
 
                         {/* Quantity */}
@@ -148,7 +150,7 @@ const Cart = () => {
                         {/* Total */}
                         <div className="lg:col-span-2 text-center">
                           <span className="text-lg font-bold text-gray-900">
-                            {(item.price * item.quantity).toFixed(2)}€
+                            {format(item.price * item.quantity)}
                           </span>
                         </div>
                       </div>
@@ -197,7 +199,7 @@ const Cart = () => {
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-gray-700">
                     <span>Sous-total</span>
-                    <span className="font-semibold">{subtotal.toFixed(2)}€</span>
+                    <span className="font-semibold">{format(subtotal)}</span>
                   </div>
 
                   {/* Shipping Options */}
@@ -214,7 +216,7 @@ const Cart = () => {
                             onChange={(e) => setShippingMethod(e.target.value)}
                             className="text-gold focus:ring-gold"
                           />
-                          <span className="text-sm">Standard - {subtotal > 0 ? '4.99€' : '0.00€'}</span>
+                          <span className="text-sm">Standard - {subtotal > 0 ? format(4.99) : format(0)}</span>
                         </div>
                       </label>
                       <label className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gold transition-colors">
@@ -227,7 +229,7 @@ const Cart = () => {
                             onChange={(e) => setShippingMethod(e.target.value)}
                             className="text-gold focus:ring-gold"
                           />
-                          <span className="text-sm">Express - {subtotal > 0 ? '12.99€' : '0.00€'}</span>
+                          <span className="text-sm">Express - {subtotal > 0 ? format(12.99) : format(0)}</span>
                         </div>
                       </label>
                       <label className="flex items-center justify-between p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:border-gold transition-colors">
@@ -248,7 +250,7 @@ const Cart = () => {
 
                   <div className="flex justify-between text-gray-700">
                     <span>Taxe</span>
-                    <span className="font-semibold">{tax.toFixed(2)}€</span>
+                    <span className="font-semibold">{format(tax)}</span>
                   </div>
 
                   {discount > 0 && (
@@ -259,10 +261,10 @@ const Cart = () => {
                   )}
                 </div>
 
-                <div className="pt-4 border-t-2 border-gray-200 mb-6">
+                  <div className="pt-4 border-t-2 border-gray-200 mb-6">
                   <div className="flex justify-between text-xl font-bold text-gray-900">
                     <span>Total</span>
-                    <span>{total.toFixed(2)}€</span>
+                    <span>{format(total)}</span>
                   </div>
                 </div>
 

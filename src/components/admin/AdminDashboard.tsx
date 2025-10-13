@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import apiFetch from '@/lib/api';
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DollarSign, ShoppingCart, Users, Package } from "lucide-react";
@@ -27,8 +28,8 @@ export const AdminDashboard = () => {
     const fetchStats = async () => {
       try {
         const [salesSummary, monthlySales] = await Promise.all([
-          fetch('http://localhost:3001/api/admin/reports/sales-summary').then(res => res.json()),
-          fetch('http://localhost:3001/api/admin/reports/monthly-sales').then(res => res.json()),
+          apiFetch('/api/admin/reports/sales-summary') as any,
+          apiFetch('/api/admin/reports/monthly-sales') as any,
         ]);
 
         setStats({

@@ -88,20 +88,7 @@ const Checkout = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:3001/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Une erreur est survenue lors de la création de la commande.');
-      }
-
+      const result = await (await import('@/lib/api')).apiFetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(orderData) } as any) as any;
       toast.success('Commande passée avec succès !');
       clearCart();
       navigate('/order-confirmation', { state: { orderId: result.orderId } });
