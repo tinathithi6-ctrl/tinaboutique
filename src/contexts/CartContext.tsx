@@ -16,6 +16,7 @@ interface CartContextType {
   removeFromCart: (itemId: string) => Promise<void>;
   updateQuantity: (itemId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
+  mergeLocalCart: () => Promise<void>;
   cartCount: number;
   loading: boolean;
 }
@@ -217,6 +218,35 @@ export const CartProvider = ({ children }: CartProviderProps) => {
     }
   };
 
+  // Fusionner le panier local (localStorage) vers la DB lorsque l'utilisateur se connecte
+  const mergeLocalCart = async () => {
+    if (!user || !token) return;
+
+    try {
+      const localData = localStorage.getItem('cart');
+      const items: CartItem[] = localData ? JSON.parse(localData) : [];
+      if (!items || items.length === 0) return;
+
+      // Envoyer tous les items en une seule requête au endpoint de merge côté serveur
+      const payload = items.map(i => ({ product_id: parseInt(i.id, 10), quantity: i.quantity }));
+
+      await fetch('http://localhost:3001/api/cart/merge', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ items: payload })
+      });
+
+      // Nettoyer le localStorage et recharger le panier depuis la DB
+      localStorage.removeItem('cart');
+      await loadCart();
+    } catch (error) {
+      console.error('Erreur lors de la fusion du panier local:', error);
+    }
+  };
+
   return (
     <CartContext.Provider value={{
       cartItems,
@@ -224,6 +254,7 @@ export const CartProvider = ({ children }: CartProviderProps) => {
       removeFromCart,
       updateQuantity,
       clearCart,
+      mergeLocalCart,
       cartCount,
       loading
     }}>

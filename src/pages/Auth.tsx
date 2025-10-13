@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext"; // Importer le hook d'authentification
+import { useCart } from "@/contexts/CartContext";
 import { z } from "zod";
 import { Loader2 } from "lucide-react";
 
@@ -28,6 +29,7 @@ const Auth = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { setAuthData } = useAuth(); // Utiliser la fonction du contexte
+  const { mergeLocalCart } = useCart();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -62,6 +64,12 @@ const Auth = () => {
       }
 
       setAuthData(data.user, data.token); // Mettre à jour le contexte
+      // Fusionner le panier local dans la DB si présent
+      try {
+        await mergeLocalCart();
+      } catch (err) {
+        console.error('Erreur lors de la fusion du panier après login:', err);
+      }
 
       toast({
         title: t("auth.toast.login.success.title"),
@@ -118,8 +126,14 @@ const Auth = () => {
 
       const loginData = await loginResponse.json();
 
-      if (loginResponse.ok) {
+        if (loginResponse.ok) {
         setAuthData(loginData.user, loginData.token);
+        // Fusionner le panier local dans la DB après auto-login
+        try {
+          await mergeLocalCart();
+        } catch (err) {
+          console.error('Erreur lors de la fusion du panier après signup:', err);
+        }
         toast({
           title: t("auth.toast.signup.success.title"),
           description: t("auth.toast.signup.success.description"),

@@ -1346,6 +1346,61 @@ app.post('/api/cart', async (req, res) => {
   }
 });
 
+// Merge du panier (accepte un tableau d'items) - opération atomique
+app.post('/api/cart/merge', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requis' });
+  }
+
+  const token = authHeader.substring(7);
+  let decoded: any;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET) as any;
+  } catch (err) {
+    return res.status(401).json({ error: 'Token invalide' });
+  }
+
+  const userId = decoded.userId;
+  const { items } = req.body; // items: [{ product_id, quantity }, ...]
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Aucun item à fusionner' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    for (const it of items) {
+      const productId = it.product_id;
+      const qty = parseInt(it.quantity, 10) || 0;
+      if (!productId || qty <= 0) continue;
+
+      // Vérifier que le produit existe et est actif
+      const prod = await client.query('SELECT id FROM products WHERE id = $1 AND is_active = true', [productId]);
+      if (prod.rows.length === 0) continue;
+
+      // Insérer ou augmenter la quantité
+      await client.query(`
+        INSERT INTO cart_items (user_id, product_id, quantity, added_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (user_id, product_id)
+        DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity, added_at = NOW();
+      `, [userId, productId, qty]);
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Erreur lors du merge du panier:', error);
+    res.status(500).json({ error: 'Erreur lors de la fusion du panier' });
+  } finally {
+    client.release();
+  }
+});
+
 // Modifier la quantité d'un article du panier
 app.put('/api/cart/:productId', async (req, res) => {
   try {
@@ -1755,12 +1810,26 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     const orderResult = await client.query(orderQuery, orderValues);
     const orderId = orderResult.rows[0].id;
 
-    // Insérer dans la table 'order_items'
+    // Insérer dans la table 'order_items' et vérifier le stock atomiquement
     const itemQuery = `
       INSERT INTO order_items (order_id, product_id, name, quantity, price, image_url, currency)
       VALUES ($1, $2, $3, $4, $5, $6, $7);
     `;
+
     for (const item of items) {
+      // Vérifier la disponibilité du stock
+      const stockRes = await client.query('SELECT stock_quantity FROM products WHERE id = $1 FOR UPDATE', [item.id]);
+      if (stockRes.rows.length === 0) {
+        throw new Error(`Produit introuvable: ${item.id}`);
+      }
+      const available = parseInt(stockRes.rows[0].stock_quantity, 10);
+      if (available < item.quantity) {
+        throw new Error(`Stock insuffisant pour le produit ${item.id}. Disponible: ${available}, demandé: ${item.quantity}`);
+      }
+
+      // Décrémenter le stock
+      await client.query('UPDATE products SET stock_quantity = stock_quantity - $1 WHERE id = $2', [item.quantity, item.id]);
+
       const itemValues = [orderId, item.id, item.name, item.quantity, item.price, item.image_url, currency];
       await client.query(itemQuery, itemValues);
     }
