@@ -4,16 +4,17 @@
   "version": "0.0.0",
   "type": "module",
   "engines": {
-    "node": "18.x"
+    "node": "20.x"
   },
   "scripts": {
     "dev": "vite",
     "dev:frontend": "vite",
-  "dev:backend": "tsx watch src/server.ts",
-  "start:prod": "cross-env NODE_ENV=production tsx src/server.ts",
-  "migrate:prod": "cross-env NODE_ENV=production tsx src/scripts/runMigrations.ts",
-    "build": "vite build",
+    "dev:backend": "tsx watch src/server.ts",
+    "start:prod": "cross-env NODE_ENV=production tsx src/server.ts",
+    "migrate:prod": "cross-env NODE_ENV=production tsx src/scripts/runMigrations.ts",
+    "build": "tsc && vite build",
     "build:dev": "vite build --mode development",
+    "start": "node dist/server.js",
     "lint": "eslint .",
     "test": "vitest",
     "preview": "vite preview"
