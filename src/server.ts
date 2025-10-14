@@ -5,14 +5,13 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
-import { pool } from './db';
+import { pool, supabase } from './db';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import expressValidator from 'express-validator';
 import morgan from 'morgan';
-import { runMigrations } from './db/migrations';
 import { ActivityLogger, ActionTypes } from './services/ActivityLogger';
 import { CurrencyService } from './services/CurrencyService';
 import { injectActivityLogger, autoTrackMiddleware, logAction } from './middleware/trackingMiddleware';
@@ -27,17 +26,16 @@ if (!JWT_SECRET) {
 }
 
 // 🚀 INITIALISER LES SERVICES DE TRAÇABILITÉ ET MULTI-DEVISES
-const activityLogger = new ActivityLogger(pool);
-const currencyService = new CurrencyService(pool);
+// Désactivé pour Supabase - utiliser l'API REST de Supabase
+const activityLogger = null;
+const currencyService = null;
 
-// Exécuter les migrations au démarrage
-runMigrations(pool)
-  .then(() => console.log('✅ Migrations exécutées avec succès'))
-  .catch(err => console.error('❌ Erreur migrations:', err));
+// Migrations désactivées - tables créées manuellement dans Supabase
+console.log('ℹ️ Migrations désactivées (utilisation de Supabase)');
 
 // Configuration des origines CORS autorisées
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL || 'https://votredomaine.com']
+  ? [process.env.FRONTEND_URL || 'https://tinaboutique.netlify.app', 'https://tinaboutique.onrender.com']
   : ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
 
 // --- MIDDLEWARES DE SÉCURITÉ ---
@@ -434,15 +432,26 @@ function calculateProductPrice(product: any, quantity: number = 1) {
 // Obtenir tous les produits (avec filtres optionnels)
 app.get('/api/products', async (req, res) => {
   try {
-    // TODO: Ajouter la logique de filtrage et de pagination
-    const result = await pool.query('SELECT * FROM products WHERE is_active = true');
-    const products = result.rows.map(product => ({
+    // Utiliser Supabase au lieu de PostgreSQL direct
+    const { data: products, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_active', true);
+
+    if (error) {
+      console.error('Erreur Supabase:', error);
+      return res.status(500).json({ error: 'Erreur base de données' });
+    }
+
+    // Ajouter les informations de prix calculées
+    const productsWithPricing = products.map(product => ({
       ...product,
-      // Ajouter les informations de prix calculées
       pricing: calculateProductPrice(product, 1)
     }));
-    res.json(products);
+
+    res.json(productsWithPricing);
   } catch (error) {
+    console.error('Erreur API products:', error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 });
