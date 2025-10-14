@@ -2139,9 +2139,15 @@ async function scheduleFetchLiveRates() {
 // Lancer le scheduler si en production ou si variable d'env explicitement activée
 if (process.env.ENABLE_CURRENCY_SCHEDULER === 'true' || process.env.NODE_ENV === 'production') {
   // Première exécution au démarrage
-  scheduleFetchLiveRates();
+  scheduleFetchLiveRates().catch(err => {
+    console.log('Scheduler: première exécution ignorée (permissions)', err.message);
+  });
   // Toutes les 12 heures
-  setInterval(scheduleFetchLiveRates, 12 * 60 * 60 * 1000);
+  setInterval(() => {
+    scheduleFetchLiveRates().catch(err => {
+      console.log('Scheduler: exécution périodique ignorée (permissions)', err.message);
+    });
+  }, 12 * 60 * 60 * 1000);
 }
 
 // Route - Sélection devise utilisateur
