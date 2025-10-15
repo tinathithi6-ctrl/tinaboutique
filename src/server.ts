@@ -40,8 +40,14 @@ console.log('ℹ️ Services initialisés.');
 
 // Configuration des origines CORS autorisées
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL || 'https://sparkling-biscotti-defcce.netlify.app', 'https://tinaboutique.onrender.com']
+  ? [
+      'https://sparkling-biscotti-defcce.netlify.app',
+      'https://tinaboutique.onrender.com',
+      process.env.FRONTEND_URL
+    ].filter(Boolean) // Enlever les undefined
   : ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
+
+console.log('🌐 CORS - Origines autorisées:', allowedOrigins);
 
 // --- MIDDLEWARES DE SÉCURITÉ ---
 
