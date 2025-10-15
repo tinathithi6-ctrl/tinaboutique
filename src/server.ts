@@ -35,7 +35,7 @@ console.log('ℹ️ Migrations désactivées (utilisation de Supabase)');
 
 // Configuration des origines CORS autorisées
 const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? [process.env.FRONTEND_URL || 'https://tinaboutique.netlify.app', 'https://tinaboutique.onrender.com']
+  ? [process.env.FRONTEND_URL || 'https://sparkling-biscotti-defcce.netlify.app', 'https://tinaboutique.onrender.com']
   : ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
 
 // --- MIDDLEWARES DE SÉCURITÉ ---
@@ -564,15 +564,32 @@ app.delete('/api/admin/categories/:id', async (req, res) => {
 app.post('/api/admin/products', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { name, description, category_id, price_eur, price_usd, price_cdf, stock_quantity, images } = req.body;
-    const query = `
-      INSERT INTO products (name, description, category_id, price_eur, price_usd, price_cdf, stock_quantity, images)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING *;
-    `;
-    const values = [name, description, category_id, price_eur, price_usd, price_cdf, stock_quantity, images];
-    const result = await pool.query(query, values);
-    res.status(201).json(result.rows[0]);
+
+    // Utiliser Supabase au lieu de PostgreSQL direct
+    const { data: product, error } = await supabase
+      .from('products')
+      .insert({
+        name,
+        description,
+        category_id,
+        price_eur,
+        price_usd,
+        price_cdf,
+        stock_quantity,
+        images,
+        is_active: true
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Erreur Supabase:', error);
+      return res.status(500).json({ error: 'Erreur base de données' });
+    }
+
+    res.status(201).json(product);
   } catch (error) {
+    console.error('Erreur API admin products:', error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 });
@@ -1274,39 +1291,39 @@ app.get('/api/cart', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     const userId = decoded.userId;
 
-    // Vérifier si la table cart_items existe
-    const tableCheck = await pool.query(`
-      SELECT EXISTS (
-        SELECT FROM information_schema.tables
-        WHERE table_name = 'cart_items'
-      );
-    `);
+    // Utiliser Supabase au lieu de PostgreSQL direct
+    const { data: cartItems, error } = await supabase
+      .from('cart_items')
+      .select(`
+        *,
+        products (
+          name,
+          price_eur,
+          price_usd,
+          price_cdf,
+          images
+        )
+      `)
+      .eq('user_id', userId)
+      .order('added_at', { ascending: false });
 
-    if (!tableCheck.rows[0].exists) {
-      return res.json([]); // Retourner un panier vide si la table n'existe pas
+    if (error) {
+      console.error('Erreur Supabase cart:', error);
+      return res.status(500).json({ error: 'Erreur base de données' });
     }
 
-    const result = await pool.query(`
-      SELECT
-        ci.*,
-        p.name,
-        p.price_eur,
-        p.price_usd,
-        p.price_cdf,
-        p.images[1] as image_url
-      FROM cart_items ci
-      JOIN products p ON ci.product_id = p.id
-      WHERE ci.user_id = $1
-      ORDER BY ci.added_at DESC
-    `, [userId]);
-
-    // Retourner les articles avec prix simple
-    const cartItems = result.rows.map(item => ({
+    // Formater les données pour compatibilité
+    const formattedItems = cartItems.map(item => ({
       ...item,
-      totalPrice: item.price_eur * item.quantity
+      name: item.products?.name,
+      price_eur: item.products?.price_eur,
+      price_usd: item.products?.price_usd,
+      price_cdf: item.products?.price_cdf,
+      image_url: item.products?.images?.[0],
+      totalPrice: (item.products?.price_eur || 0) * item.quantity
     }));
 
-    res.json(cartItems);
+    res.json(formattedItems);
   } catch (error) {
     console.error('Erreur lors de la récupération du panier:', error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
