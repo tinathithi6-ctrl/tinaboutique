@@ -1,0 +1,37 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "actions": "Actions",
+    "create": "Créer",
+    "update": "Mettre à jour"
+  },
+  "admin": {
+    "dashboard": {
+      "totalRevenue": "Revenu Total",
+      "totalOrders": "Commandes Totales",
+      "totalCustomers": "Clients Totaux",
+      "totalProducts": "Produits Totaux",
+      "salesChartTitle": "Aperçu des Ventes",
+      "sales_monthly": "Ventes des 12 derniers mois",
+      "sales_quarterly": "Ventes des 4 derniers trimestres",
+      "sales_yearly": "Ventes des dernières années",
+      "monthly": "Mensuel",
+      "quarterly": "Trimestriel",
+      "yearly": "Annuel"
+    },
+    "categories": {
+      "title": "Gérer les Catégories",
+      "add": "Ajouter une catégorie",
+      "edit": "Modifier la catégorie",
+      "name": "Nom",
+      "description": "Description",
+      "image": "Image",
+      "imageUrl": "URL de l'image",
+      "updated": "Catégorie mise à jour avec succès",
+      "created": "Catégorie créée avec succès",
+      "deleted": "Catégorie supprimée avec succès",
+      "error": "Une erreur est survenue",
+      "confirmDelete": "Êtes-vous sûr de vouloir supprimer cette catégorie ?"
+    }
+  }
+}

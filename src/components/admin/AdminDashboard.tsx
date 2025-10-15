@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import apiFetch from '@/lib/api';
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DollarSign, ShoppingCart, Users, Package } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { subDays, format } from 'date-fns';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -18,30 +18,33 @@ interface ChartData {
   total: number;
 }
 
+type Period = 'monthly' | 'quarterly' | 'yearly';
+
 export const AdminDashboard = () => {
   const { t } = useTranslation();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [chartData, setChartData] = useState<ChartData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [period, setPeriod] = useState<Period>('monthly');
 
   useEffect(() => {
     const fetchStats = async () => {
+      setLoading(true);
       try {
-        const [salesSummary, monthlySales] = await Promise.all([
-          apiFetch('/api/admin/reports/sales-summary') as any,
-          apiFetch('/api/admin/reports/monthly-sales') as any,
+        const [dashboardStats, salesOverTime] = await Promise.all([
+          apiFetch('/api/admin/dashboard/stats') as any,
+          apiFetch(`/api/admin/reports/sales-over-time?period=${period}`) as any,
         ]);
 
         setStats({
-          totalRevenue: salesSummary.total_revenue.total_eur,
-          totalOrders: salesSummary.total_orders,
-          totalCustomers: 0, // TODO: Add API for customers count
-          totalProducts: 0, // TODO: Add API for products count
+          totalRevenue: dashboardStats.totalRevenue,
+          totalOrders: dashboardStats.totalOrders,
+          totalCustomers: dashboardStats.totalCustomers,
+          totalProducts: dashboardStats.totalProducts,
         });
 
-        // Process monthly sales data for chart
-        const formattedChartData = monthlySales.map((item: any) => ({
-          name: item.month,
+        const formattedChartData = salesOverTime.map((item: any) => ({
+          name: item.period,
           total: item.revenue_eur,
         }));
 
@@ -55,7 +58,7 @@ export const AdminDashboard = () => {
     };
 
     fetchStats();
-  }, []);
+  }, [period]);
 
   const statCards = [
     {
@@ -101,8 +104,17 @@ export const AdminDashboard = () => {
       </div>
       <Card>
         <CardHeader>
-          <CardTitle>{t("admin.dashboard.salesChartTitle")}</CardTitle>
-          <CardDescription>{t("admin.dashboard.salesLast30Days")}</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>{t("admin.dashboard.salesChartTitle")}</CardTitle>
+              <CardDescription>{t(`admin.dashboard.sales_${period}`)}</CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <Button variant={period === 'monthly' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('monthly')}>{t("admin.dashboard.monthly")}</Button>
+              <Button variant={period === 'quarterly' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('quarterly')}>{t("admin.dashboard.quarterly")}</Button>
+              <Button variant={period === 'yearly' ? 'default' : 'outline'} size="sm" onClick={() => setPeriod('yearly')}>{t("admin.dashboard.yearly")}</Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={350}>

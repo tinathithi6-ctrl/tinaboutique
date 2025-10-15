@@ -20,12 +20,14 @@ export const AdminCategories = () => {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
+    image_url: "",
   });
 
   const resetForm = () => {
     setFormData({
       name: "",
       description: "",
+      image_url: "",
     });
     setEditingCategory(null);
   };
@@ -36,21 +38,21 @@ export const AdminCategories = () => {
     const categoryData = {
       name: formData.name,
       description: formData.description || null,
+      image_url: formData.image_url || null,
     };
 
     try {
       const url = editingCategory
-  ? `/api/admin/categories/${editingCategory.id}`
-  : '/api/admin/categories';
+        ? `/api/admin/categories/${editingCategory.id}`
+        : '/api/admin/categories';
       const method = editingCategory ? 'PUT' : 'POST';
 
-      const response = await fetch(url, {
+      // Remplacer par apiFetch pour la cohérence
+      await apiFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(categoryData),
-      });
-
-      if (!response.ok) throw new Error('Failed to save category');
+      } as any);
 
       toast.success(editingCategory ? t("admin.categories.updated") : t("admin.categories.created"));
       setIsDialogOpen(false);
@@ -67,6 +69,7 @@ export const AdminCategories = () => {
     setFormData({
       name: category.name,
       description: category.description || "",
+      image_url: category.image_url || "",
     });
     setIsDialogOpen(true);
   };
@@ -127,6 +130,15 @@ export const AdminCategories = () => {
                   rows={3}
                 />
               </div>
+              <div>
+                <Label htmlFor="image_url">{t("admin.categories.imageUrl")}</Label>
+                <Input
+                  id="image_url"
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  placeholder="https://example.com/image.png"
+                />
+              </div>
               <Button type="submit" className="w-full">
                 {editingCategory ? t("common.update") : t("common.create")}
               </Button>
@@ -138,6 +150,7 @@ export const AdminCategories = () => {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-[100px]">{t("admin.categories.image")}</TableHead>
               <TableHead>{t("admin.categories.name")}</TableHead>
               <TableHead>{t("admin.categories.description")}</TableHead>
               <TableHead className="text-right">{t("common.actions")}</TableHead>
@@ -146,6 +159,13 @@ export const AdminCategories = () => {
           <TableBody>
             {categories?.map((category) => (
               <TableRow key={category.id}>
+                <TableCell>
+                  {category.image_url ? (
+                    <img src={category.image_url} alt={category.name} className="h-12 w-12 object-cover rounded-md" />
+                  ) : (
+                    <div className="h-12 w-12 bg-gray-200 rounded-md flex items-center justify-center text-xs text-gray-500">No Img</div>
+                  )}
+                </TableCell>
                 <TableCell className="font-medium">{category.name}</TableCell>
                 <TableCell>{category.description}</TableCell>
                 <TableCell className="text-right space-x-2">

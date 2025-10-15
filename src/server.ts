@@ -26,12 +26,17 @@ if (!JWT_SECRET) {
 }
 
 // 🚀 INITIALISER LES SERVICES DE TRAÇABILITÉ ET MULTI-DEVISES
-// Désactivé pour Supabase - utiliser l'API REST de Supabase
-const activityLogger = null;
-const currencyService = null;
+const activityLogger = new ActivityLogger(pool);
+const currencyService = new CurrencyService(pool);
 
-// Migrations désactivées - tables créées manuellement dans Supabase
-console.log('ℹ️ Migrations désactivées (utilisation de Supabase)');
+// Initialiser le cache des devises au démarrage
+currencyService.reloadCache().then(() => {
+  console.log('💱 Cache des devises initialisé.');
+}).catch(err => {
+  console.error('Erreur initialisation cache devises:', err);
+});
+
+console.log('ℹ️ Services initialisés.');
 
 // Configuration des origines CORS autorisées
 const allowedOrigins = process.env.NODE_ENV === 'production'
@@ -513,13 +518,13 @@ app.get('/api/categories', async (req, res) => {
 // Créer une catégorie
 app.post('/api/admin/categories', async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, image_url } = req.body;
     const query = `
-      INSERT INTO categories (name, description)
-      VALUES ($1, $2)
+      INSERT INTO categories (name, description, image_url)
+      VALUES ($1, $2, $3)
       RETURNING *;
     `;
-    const values = [name, description];
+    const values = [name, description, image_url];
     const result = await pool.query(query, values);
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -531,14 +536,14 @@ app.post('/api/admin/categories', async (req, res) => {
 app.put('/api/admin/categories/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description, image_url } = req.body;
     const query = `
       UPDATE categories
-      SET name = $1, description = $2
-      WHERE id = $3
+      SET name = $1, description = $2, image_url = $3
+      WHERE id = $4
       RETURNING *;
     `;
-    const values = [name, description, id];
+    const values = [name, description, image_url, id];
     const result = await pool.query(query, values);
     res.json(result.rows[0]);
   } catch (error) {
@@ -668,6 +673,44 @@ app.get('/api/admin/reports/monthly-sales', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Erreur lors de la récupération des ventes mensuelles:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Obtenir les ventes sur une période (trimestrielle, annuelle)
+app.get('/api/admin/reports/sales-over-time', async (req, res) => {
+  const { period = 'monthly' } = req.query as { period: string };
+  try {
+    let format;
+
+    switch (period) {
+      case 'quarterly':
+        format = 'YYYY-"Q"Q';
+        break;
+      case 'yearly':
+        format = 'YYYY';
+        break;
+      default:
+        format = 'YYYY-MM';
+        break;
+    }
+
+    const query = `
+      SELECT 
+        TO_CHAR(created_at, '${format}') as period,
+        SUM(CASE WHEN currency = 'EUR' THEN total_amount ELSE 0 END) as revenue_eur,
+        SUM(CASE WHEN currency = 'USD' THEN total_amount ELSE 0 END) as revenue_usd,
+        SUM(CASE WHEN currency = 'CDF' THEN total_amount ELSE 0 END) as revenue_cdf
+      FROM orders 
+      WHERE status = 'completed'
+      GROUP BY period
+      ORDER BY period;
+    `;
+
+    const result = await pool.query(query);
+    res.json(result.rows);
+  } catch (error) {
+    console.error(`Erreur lors de la récupération des ventes (${period}):`, error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 });
