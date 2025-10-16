@@ -8,9 +8,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext"; // Importer le hook d'authentification
 import { useCart } from "@/contexts/CartContext";
+import { PasswordStrengthIndicator } from "@/components/PasswordStrengthIndicator";
 import apiFetch from '@/lib/api';
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 const loginSchema = (t: (key: string) => string) => z.object({
   email: z.string().trim().email({ message: t("auth.zod.invalidEmail") }).max(255),
@@ -19,7 +20,12 @@ const loginSchema = (t: (key: string) => string) => z.object({
 
 const signupSchema = (t: (key: string) => string) => z.object({
   email: z.string().trim().email({ message: t("auth.zod.invalidEmail") }).max(255),
-  password: z.string().min(6, { message: t("auth.zod.passwordLength") }),
+  password: z.string()
+    .min(8, { message: "Le mot de passe doit contenir au moins 8 caractères" })
+    .regex(/[A-Z]/, { message: "Le mot de passe doit contenir au moins une majuscule" })
+    .regex(/[a-z]/, { message: "Le mot de passe doit contenir au moins une minuscule" })
+    .regex(/[0-9]/, { message: "Le mot de passe doit contenir au moins un chiffre" })
+    .regex(/[!@#$%^&*(),.?":{}|<>]/, { message: "Le mot de passe doit contenir au moins un caractère spécial" }),
   fullName: z.string().trim().min(2, { message: t("auth.zod.fullNameLength") }).max(100),
   phone: z.string().trim().optional(),
 });
@@ -33,6 +39,8 @@ const Auth = () => {
   const { mergeLocalCart } = useCart();
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [passwordStrong, setPasswordStrong] = useState(false);
+  const [emailValid, setEmailValid] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -41,6 +49,12 @@ const Auth = () => {
   });
 
   const from = location.state?.from?.pathname || "/";
+
+  // Validation email en temps réel
+  const validateEmailFormat = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    setEmailValid(emailRegex.test(email));
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,15 +218,27 @@ const Auth = () => {
               </>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.labels.email")}</Label>
+              <Label htmlFor="email" className="flex items-center gap-2">
+                {t("auth.labels.email")}
+                {formData.email && emailValid && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+              </Label>
               <Input
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, email: e.target.value });
+                  validateEmailFormat(e.target.value);
+                }}
                 required
                 maxLength={255}
+                className={formData.email ? (emailValid ? 'border-green-500' : 'border-red-300') : ''}
               />
+              {formData.email && !emailValid && (
+                <p className="text-xs text-red-500">Format d'email invalide</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">{t("auth.labels.password")}</Label>
@@ -224,6 +250,12 @@ const Auth = () => {
                 required
                 minLength={6}
               />
+              {!isLogin && formData.password && (
+                <PasswordStrengthIndicator 
+                  password={formData.password}
+                  onStrengthChange={setPasswordStrong}
+                />
+              )}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? (
