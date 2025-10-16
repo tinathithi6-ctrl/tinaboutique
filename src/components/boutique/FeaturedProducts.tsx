@@ -28,9 +28,8 @@ const FeaturedProducts = () => {
     const fetchProducts = async () => {
       try {
         const data = await apiFetch('/api/products');
-        setProducts(Array.isArray(data) ? data.slice(0, 8) : []);
         // On ne prend que les 8 premiers produits pour la page d'accueil
-        setProducts(data.slice(0, 8));
+        setProducts(Array.isArray(data) ? data.slice(0, 8) : []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
       } finally {
