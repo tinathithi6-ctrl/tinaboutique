@@ -1,0 +1,30 @@
+-- ============================================
+-- SUPPRIMER TOUTES LES TABLES (RESET COMPLET)
+-- ⚠️ ATTENTION: Ceci supprime TOUTES vos données!
+-- Utilisez seulement si vous voulez recommencer à zéro
+-- ============================================
+
+-- Désactiver les contraintes de clés étrangères temporairement
+SET session_replication_role = 'replica';
+
+-- Supprimer les tables dans l'ordre inverse (à cause des foreign keys)
+DROP TABLE IF EXISTS currency_rate_history CASCADE;
+DROP TABLE IF EXISTS admin_notifications CASCADE;
+DROP TABLE IF EXISTS user_sessions CASCADE;
+DROP TABLE IF EXISTS currency_rates CASCADE;
+DROP TABLE IF EXISTS payment_logs CASCADE;
+DROP TABLE IF EXISTS activity_logs CASCADE;
+DROP TABLE IF EXISTS site_settings CASCADE;
+DROP TABLE IF EXISTS order_items CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS cart_items CASCADE;
+DROP TABLE IF EXISTS products CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Réactiver les contraintes
+SET session_replication_role = 'origin';
+
+-- Message de confirmation
+SELECT '🗑️ TOUTES LES TABLES ONT ÉTÉ SUPPRIMÉES!' AS status;
+SELECT 'Vous pouvez maintenant lancer SUPABASE-SCHEMA-CORRIGE.txt' AS next_step;
