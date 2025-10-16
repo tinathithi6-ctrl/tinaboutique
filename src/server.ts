@@ -1283,6 +1283,38 @@ app.put('/api/admin/users/:id/role', authenticateToken, requireAdmin, async (req
   }
 });
 
+// Créer un nouvel utilisateur admin (ADMIN UNIQUEMENT)
+app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { email, password, full_name, role = 'admin' } = req.body;
+
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email et mot de passe requis' });
+    }
+
+    // Vérifier si l'email existe déjà
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+    }
+
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Créer l'utilisateur
+    const result = await pool.query(
+      'INSERT INTO users (email, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role, created_at',
+      [email, hashedPassword, full_name || email.split('@')[0], role]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Erreur création utilisateur admin:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
 // Upload d'images pour les produits
 app.post('/api/admin/upload-images', upload.array('images', 10), (req, res) => {
   try {
