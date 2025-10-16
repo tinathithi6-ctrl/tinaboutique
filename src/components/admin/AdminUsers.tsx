@@ -7,9 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Shield, User, UserPlus } from "lucide-react";
+import { Shield, User, UserPlus, Trash2 } from "lucide-react";
 
 export const AdminUsers = () => {
   const { t } = useTranslation();
@@ -74,6 +85,20 @@ export const AdminUsers = () => {
     } catch (error: any) {
       console.error("Error creating user:", error);
       toast.error(error.message || "Erreur lors de la création");
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    try {
+      await (await import('@/lib/api')).apiFetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+      });
+
+      toast.success(`Utilisateur ${userEmail} supprimé avec succès`);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      toast.error(error.message || "Erreur lors de la suppression");
     }
   };
 
@@ -171,6 +196,7 @@ export const AdminUsers = () => {
               <TableHead>{t("admin.users.email")}</TableHead>
               <TableHead>{t("admin.users.role")}</TableHead>
               <TableHead>{t("admin.users.joined")}</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -204,6 +230,33 @@ export const AdminUsers = () => {
                 </TableCell>
                 <TableCell>
                   {format(new Date(user.created_at), "dd/MM/yyyy")}
+                </TableCell>
+                <TableCell className="text-right">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Êtes-vous sûr de vouloir supprimer l'utilisateur <strong>{user.email}</strong> ?
+                          Cette action est irréversible.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Annuler</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDeleteUser(user.id, user.email)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Supprimer
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </TableCell>
               </TableRow>
             ))}

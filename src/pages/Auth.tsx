@@ -270,6 +270,19 @@ const Auth = () => {
               )}
             </Button>
           </form>
+
+          {isLogin && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="link"
+                className="text-sm"
+                onClick={() => window.location.href = '/forgot-password'}
+              >
+                Mot de passe oublié ?
+              </Button>
+            </div>
+          )}
+
           <div className="mt-4 text-center">
             <Button
               variant="link"

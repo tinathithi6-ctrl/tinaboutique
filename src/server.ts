@@ -14,6 +14,7 @@ import expressValidator from 'express-validator';
 import morgan from 'morgan';
 import { ActivityLogger, ActionTypes } from './services/ActivityLogger';
 import { CurrencyService } from './services/CurrencyService';
+import { notificationService } from './services/NotificationService';
 import { injectActivityLogger, autoTrackMiddleware, logAction } from './middleware/trackingMiddleware';
 
 const app = express();
@@ -1304,13 +1305,467 @@ app.post('/api/admin/users', authenticateToken, requireAdmin, async (req, res) =
 
     // Créer l'utilisateur
     const result = await pool.query(
-      'INSERT INTO users (email, password, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role, created_at',
+      'INSERT INTO users (email, password_hash, full_name, role) VALUES ($1, $2, $3, $4) RETURNING id, email, full_name, role, created_at',
       [email, hashedPassword, full_name || email.split('@')[0], role]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Erreur création utilisateur admin:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Supprimer un utilisateur (ADMIN UNIQUEMENT)
+app.delete('/api/admin/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminId = (req as any).user.userId;
+
+    // Empêcher l'admin de se supprimer lui-même
+    if (id === adminId) {
+      return res.status(400).json({ error: 'Vous ne pouvez pas supprimer votre propre compte depuis cette interface.' });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const userCheck = await pool.query('SELECT email, role FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const userEmail = userCheck.rows[0].email;
+    const userName = userCheck.rows[0].full_name;
+
+    // Supprimer l'utilisateur
+    await pool.query('DELETE FROM users WHERE id = $1', [id]);
+
+    // Logger l'action
+    console.log(`Admin ${adminId} a supprimé l'utilisateur ${userEmail}`);
+
+    // 🔔 Notification de suppression
+    notificationService.send({
+      email: userEmail,
+      templateName: 'account_deleted',
+      data: {
+        customerName: userName || 'Client'
+      },
+      channels: ['email']
+    }).catch(err => console.error('Erreur notification suppression:', err));
+
+    res.json({ message: 'Utilisateur supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur suppression utilisateur:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Supprimer son propre compte (Utilisateur)
+app.delete('/api/user/account', authenticateToken, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: 'Mot de passe requis pour confirmer la suppression' });
+    }
+
+    // Vérifier le mot de passe
+    const userResult = await pool.query('SELECT password_hash FROM users WHERE id = $1', [userId]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Utilisateur non trouvé' });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, userResult.rows[0].password_hash);
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Mot de passe incorrect' });
+    }
+
+    // Récupérer les infos avant suppression
+    const userData = await pool.query('SELECT email, full_name FROM users WHERE id = $1', [userId]);
+    const user = userData.rows[0];
+
+    // Supprimer toutes les données associées (cascade)
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    // 🔔 Notification d'auto-suppression
+    if (user) {
+      notificationService.send({
+        email: user.email,
+        templateName: 'account_deleted',
+        data: {
+          customerName: user.full_name || 'Client'
+        },
+        channels: ['email']
+      }).catch(err => console.error('Erreur notification auto-suppression:', err));
+    }
+
+    res.json({ message: 'Compte supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur suppression compte:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Demander la réinitialisation du mot de passe
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email requis' });
+    }
+
+    // Vérifier que l'utilisateur existe
+    const userResult = await pool.query('SELECT id, email FROM users WHERE email = $1', [email]);
+    if (userResult.rows.length === 0) {
+      // Ne pas révéler si l'email existe ou non (sécurité)
+      return res.json({ message: 'Si cet email existe, un lien de réinitialisation a été envoyé.' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Générer un token de réinitialisation unique
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = await bcrypt.hash(resetToken, 10);
+    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 heure
+
+    // Sauvegarder le token dans la DB
+    await pool.query(
+      'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+      [resetTokenHash, resetTokenExpiry, user.id]
+    );
+
+    // TODO: Envoyer l'email avec le lien de réinitialisation
+    // Pour l'instant, on retourne le token (à enlever en production!)
+    const resetLink = `${process.env.FRONTEND_URL || 'https://sparkling-biscotti-defcce.netlify.app'}/reset-password?token=${resetToken}&email=${email}`;
+    
+    console.log(`🔐 Lien de réinitialisation pour ${email}: ${resetLink}`);
+
+    res.json({ 
+      message: 'Si cet email existe, un lien de réinitialisation a été envoyé.',
+      // TEMPORAIRE pour test - à enlever en production
+      resetLink: process.env.NODE_ENV === 'development' ? resetLink : undefined
+    });
+  } catch (error) {
+    console.error('Erreur réinitialisation mot de passe:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Réinitialiser le mot de passe
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { email, token, newPassword } = req.body;
+
+    if (!email || !token || !newPassword) {
+      return res.status(400).json({ error: 'Email, token et nouveau mot de passe requis' });
+    }
+
+    // Vérifier que le token est valide
+    const userResult = await pool.query(
+      'SELECT id, reset_token, reset_token_expiry FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rows.length === 0 || !userResult.rows[0].reset_token) {
+      return res.status(400).json({ error: 'Token de réinitialisation invalide ou expiré' });
+    }
+
+    const user = userResult.rows[0];
+
+    // Vérifier l'expiration
+    if (new Date() > new Date(user.reset_token_expiry)) {
+      return res.status(400).json({ error: 'Token de réinitialisation expiré' });
+    }
+
+    // Vérifier le token
+    const isTokenValid = await bcrypt.compare(token, user.reset_token);
+    if (!isTokenValid) {
+      return res.status(400).json({ error: 'Token de réinitialisation invalide' });
+    }
+
+    // Hasher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Mettre à jour le mot de passe et supprimer le token
+    await pool.query(
+      'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2',
+      [hashedPassword, user.id]
+    );
+
+    res.json({ message: 'Mot de passe réinitialisé avec succès' });
+  } catch (error) {
+    console.error('Erreur réinitialisation mot de passe:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Mettre à jour le statut de commande et ajouter tracking (ADMIN UNIQUEMENT)
+app.put('/api/admin/orders/:id/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, tracking_number, carrier } = req.body;
+
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!status || !validStatuses.includes(status)) {
+      return res.status(400).json({ 
+        error: 'Statut invalide. Statuts valides: ' + validStatuses.join(', ') 
+      });
+    }
+
+    // Construire la requête de mise à jour
+    let query = 'UPDATE orders SET status = $1';
+    const params: any[] = [status];
+    let paramIndex = 2;
+
+    if (tracking_number) {
+      query += `, tracking_number = $${paramIndex}`;
+      params.push(tracking_number);
+      paramIndex++;
+    }
+
+    if (carrier) {
+      query += `, carrier = $${paramIndex}`;
+      params.push(carrier);
+      paramIndex++;
+    }
+
+    if (status === 'shipped') {
+      query += `, shipped_at = NOW()`;
+    } else if (status === 'delivered') {
+      query += `, delivered_at = NOW()`;
+    }
+
+    query += ` WHERE id = $${paramIndex} RETURNING *`;
+    params.push(id);
+
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Commande non trouvée' });
+    }
+
+    const order = result.rows[0];
+
+    // 🔔 Notification automatique si expédition
+    if (status === 'shipped' && tracking_number) {
+      const userInfo = await pool.query('SELECT email, phone, full_name FROM users WHERE id = $1', [order.user_id]);
+      if (userInfo.rows.length > 0) {
+        const user = userInfo.rows[0];
+        const estimatedDelivery = new Date();
+        estimatedDelivery.setDate(estimatedDelivery.getDate() + 7);
+
+        notificationService.send({
+          email: user.email,
+          phone: user.phone,
+          templateName: 'shipment_tracking',
+          data: {
+            customerName: user.full_name || 'Client',
+            orderId: id,
+            trackingNumber: tracking_number,
+            carrier: carrier || 'Transporteur',
+            estimatedDelivery: estimatedDelivery.toLocaleDateString('fr-FR')
+          },
+          channels: ['email', 'whatsapp']
+        }).catch(err => console.error('Erreur notification expédition:', err));
+      }
+    }
+
+    res.json({
+      message: 'Statut de commande mis à jour',
+      order: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Erreur mise à jour statut commande:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// Obtenir le suivi d'une commande (Utilisateur ou Admin)
+app.get('/api/orders/:id/tracking', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).user.userId;
+    const isAdmin = (req as any).user.role === 'admin';
+
+    // Requête selon le rôle
+    let query = `
+      SELECT 
+        id, 
+        status, 
+        tracking_number, 
+        carrier,
+        created_at,
+        shipped_at,
+        delivered_at,
+        total_amount,
+        currency
+      FROM orders 
+      WHERE id = $1
+    `;
+    const params = [id];
+
+    // Si pas admin, vérifier que c'est sa commande
+    if (!isAdmin) {
+      query += ' AND user_id = $2';
+      params.push(userId);
+    }
+
+    const result = await pool.query(query, params);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Commande non trouvée' });
+    }
+
+    const order = result.rows[0];
+
+    // Créer l'historique de suivi
+    const trackingHistory = [];
+    
+    if (order.created_at) {
+      trackingHistory.push({
+        status: 'pending',
+        label: 'Commande créée',
+        date: order.created_at,
+        completed: true
+      });
+    }
+
+    if (order.status === 'processing' || order.status === 'shipped' || order.status === 'delivered') {
+      trackingHistory.push({
+        status: 'processing',
+        label: 'En préparation',
+        date: order.created_at,
+        completed: true
+      });
+    }
+
+    if (order.shipped_at) {
+      trackingHistory.push({
+        status: 'shipped',
+        label: 'Expédiée',
+        date: order.shipped_at,
+        completed: true
+      });
+    }
+
+    if (order.delivered_at) {
+      trackingHistory.push({
+        status: 'delivered',
+        label: 'Livrée',
+        date: order.delivered_at,
+        completed: true
+      });
+    }
+
+    if (order.status === 'cancelled') {
+      trackingHistory.push({
+        status: 'cancelled',
+        label: 'Annulée',
+        date: order.created_at,
+        completed: true
+      });
+    }
+
+    res.json({
+      orderId: order.id,
+      currentStatus: order.status,
+      trackingNumber: order.tracking_number,
+      carrier: order.carrier,
+      trackingHistory,
+      estimatedDelivery: order.shipped_at ? 
+        new Date(new Date(order.shipped_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : 
+        null
+    });
+  } catch (error) {
+    console.error('Erreur récupération suivi:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// 📢 ADMIN: Envoyer une notification broadcast (soldes, nouveautés)
+app.post('/api/admin/broadcast', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { type, title, message, discount, shopLink } = req.body;
+
+    if (!type || !message) {
+      return res.status(400).json({ error: 'Type et message requis' });
+    }
+
+    // Récupérer tous les utilisateurs actifs
+    const usersResult = await pool.query('SELECT email, phone, full_name FROM users WHERE role = $1', ['user']);
+    const recipients = usersResult.rows.map(u => ({ email: u.email, phone: u.phone }));
+
+    let templateName = '';
+    let data: any = { message, shopLink: shopLink || process.env.FRONTEND_URL + '/shop' };
+
+    if (type === 'sale') {
+      templateName = 'sale_announcement';
+      data.discount = discount || 30;
+    } else if (type === 'new_arrivals') {
+      templateName = 'new_arrivals';
+      data.description = message;
+    }
+
+    if (!templateName) {
+      return res.status(400).json({ error: 'Type de broadcast invalide (sale ou new_arrivals)' });
+    }
+
+    // Envoyer en masse
+    await notificationService.sendBroadcast(recipients, templateName, data, ['email', 'whatsapp']);
+
+    res.json({
+      message: `Broadcast envoyé à ${recipients.length} destinataires`,
+      count: recipients.length
+    });
+  } catch (error) {
+    console.error('Erreur envoi broadcast:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// 🛒 Rappel automatique pour paniers abandonnés (Cron job ou manuel)
+app.post('/api/admin/remind-abandoned-carts', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Trouver les paniers abandonnés (non modifiés depuis 24h minimum)
+    const abandonedCartsQuery = `
+      SELECT 
+        u.id as user_id,
+        u.email,
+        u.phone,
+        u.full_name,
+        COUNT(ci.id) as item_count
+      FROM users u
+      INNER JOIN cart_items ci ON ci.user_id = u.id
+      WHERE ci.updated_at < NOW() - INTERVAL '24 hours'
+      GROUP BY u.id, u.email, u.phone, u.full_name
+      HAVING COUNT(ci.id) > 0
+    `;
+
+    const result = await pool.query(abandonedCartsQuery);
+    const abandonedCarts = result.rows;
+
+    // Envoyer une notification à chacun
+    for (const cart of abandonedCarts) {
+      await notificationService.send({
+        email: cart.email,
+        phone: cart.phone,
+        templateName: 'abandoned_cart',
+        data: {
+          customerName: cart.full_name || 'Client',
+          itemCount: cart.item_count,
+          cartLink: process.env.FRONTEND_URL + '/cart'
+        },
+        channels: ['email', 'whatsapp']
+      }).catch(err => console.error('Erreur notification panier abandonné:', err));
+    }
+
+    res.json({
+      message: `Rappels envoyés à ${abandonedCarts.length} utilisateurs`,
+      count: abandonedCarts.length
+    });
+  } catch (error) {
+    console.error('Erreur rappel paniers abandonnés:', error);
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 });
@@ -1984,7 +2439,28 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     // Vider le panier après la commande
     await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
 
+    // Récupérer les infos utilisateur pour notification
+    const userInfo = await client.query('SELECT email, phone, full_name FROM users WHERE id = $1', [userId]);
+    const user = userInfo.rows[0];
+
     await client.query('COMMIT');
+
+    // 🔔 Envoyer notification de confirmation d'achat
+    if (user) {
+      notificationService.send({
+        email: user.email,
+        phone: user.phone,
+        templateName: 'purchase_confirmation',
+        data: {
+          customerName: user.full_name || customer_info.name || 'Client',
+          orderId,
+          amount: total_in_currency.toFixed(2),
+          currency: currencyUpper
+        },
+        channels: ['email', 'whatsapp']
+      }).catch(err => console.error('Erreur notification achat:', err));
+    }
+
     res.status(201).json({
       message: 'Commande créée avec succès',
       orderId,
