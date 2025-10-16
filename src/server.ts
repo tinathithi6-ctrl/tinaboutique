@@ -158,11 +158,21 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
+    
     // Autoriser si l'origine est dans la liste blanche
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    
+    // Autoriser tous les domaines de prévisualisation Netlify (avec hash)
+    if (origin.includes('--sparkling-biscotti-defcce.netlify.app') || 
+        origin.endsWith('.netlify.app')) {
+      console.log('✅ Domaine Netlify autorisé:', origin);
+      return callback(null, true);
+    }
+    
     // Bloquer les autres
+    console.warn('❌ Domaine bloqué par CORS:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true, // Autoriser les cookies et les en-têtes d'autorisation
