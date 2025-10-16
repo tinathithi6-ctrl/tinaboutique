@@ -44,56 +44,49 @@ const Shop = () => {
   const { format } = useCurrency();
   const [products, setProducts] = useState<ApiProduct[]>([]);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("default");
 
-  const fetchProducts = async () => {
-    try {
-      const data = await apiFetch('/api/products') as any;
-      if (Array.isArray(data)) {
-        setProducts(data);
-      } else if (data && Array.isArray(data.rows)) {
-        setProducts(data.rows);
-      } else {
-        console.warn('fetchProducts: unexpected response shape', data);
-        setProducts([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch products:", error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      const data = await apiFetch('/api/categories') as any;
-      if (Array.isArray(data)) {
-        setCategories(data);
-      } else if (data && Array.isArray(data.rows)) {
-        setCategories(data.rows);
-      } else {
-        console.warn('fetchCategories: unexpected response shape', data);
-        setCategories([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch categories:", error);
-    }
-  };
-
   useEffect(() => {
-    // Chargement initial
     const loadData = async () => {
-      setProductsLoading(true);
-      setCategoriesLoading(true);
-      await Promise.all([fetchProducts(), fetchCategories()]);
-      setProductsLoading(false);
-      setCategoriesLoading(false);
+      setIsLoading(true);
+      try {
+        const [productsData, categoriesData] = await Promise.all([
+          apiFetch('/api/products'),
+          apiFetch('/api/categories')
+        ]);
+
+        // Set products
+        if (Array.isArray(productsData)) {
+          setProducts(productsData);
+        } else if (productsData && Array.isArray((productsData as any).rows)) {
+          setProducts((productsData as any).rows);
+        } else {
+          console.warn('fetchProducts: unexpected response shape', productsData);
+          setProducts([]);
+        }
+
+        // Set categories
+        if (Array.isArray(categoriesData)) {
+          setCategories(categoriesData);
+        } else if (categoriesData && Array.isArray((categoriesData as any).rows)) {
+          setCategories((categoriesData as any).rows);
+        } else {
+          console.warn('fetchCategories: unexpected response shape', categoriesData);
+          setCategories([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch data:", error);
+        setProducts([]);
+        setCategories([]);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadData();
   }, []);
-
 
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId || !categories) return t("product.other");
@@ -148,8 +141,6 @@ const Shop = () => {
       toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
     }
   };
-
-  const isLoading = productsLoading || categoriesLoading;
 
   return (
     <div className="min-h-screen flex flex-col">
