@@ -1,14 +1,29 @@
+# TinaBoutique - Robots.txt
+# Permet à tous les moteurs de recherche d'indexer le site
+
+User-agent: *
+Allow: /
+
+# Sitemap pour Google
+Sitemap: https://tinaboutique.com/sitemap.xml
+
+# Interdire l'accès aux dossiers admin et API
+Disallow: /admin
+Disallow: /api/
+
+# Moteurs de recherche spécifiques
 User-agent: Googlebot
 Allow: /
 
 User-agent: Bingbot
 Allow: /
 
+# Réseaux sociaux (pour partages)
 User-agent: Twitterbot
 Allow: /
 
 User-agent: facebookexternalhit
 Allow: /
 
-User-agent: *
+User-agent: WhatsApp
 Allow: /

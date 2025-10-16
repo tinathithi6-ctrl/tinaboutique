@@ -3,6 +3,8 @@
  * Gère l'envoi de notifications par Email, WhatsApp, et SMS
  */
 
+import nodemailer from 'nodemailer';
+
 interface NotificationPayload {
   userId?: string;
   email?: string;
@@ -30,11 +32,35 @@ export class NotificationService {
   private static instance: NotificationService;
   private emailEnabled: boolean = false;
   private whatsappEnabled: boolean = false;
+  private emailTransporter: nodemailer.Transporter | null = null;
 
   private constructor() {
-    // Vérifier si les services sont configurés
-    this.emailEnabled = !!(process.env.SENDGRID_API_KEY || process.env.SMTP_HOST);
+    // Configurer le transporteur email (Gmail SMTP ou SendGrid)
+    if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+      this.emailTransporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        secure: process.env.SMTP_PORT === '465', // true pour port 465, false pour autres
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        },
+        tls: {
+          rejectUnauthorized: false // Ignore les erreurs de certificat SSL (Windows)
+        }
+      });
+      this.emailEnabled = true;
+      console.log('✅ Email SMTP configuré:', process.env.SMTP_USER);
+    } else if (process.env.SENDGRID_API_KEY) {
+      this.emailEnabled = true;
+      console.log('✅ SendGrid configuré');
+    }
+
+    // Vérifier WhatsApp
     this.whatsappEnabled = !!(process.env.WHATSAPP_API_KEY || process.env.TWILIO_WHATSAPP_NUMBER);
+    if (this.whatsappEnabled) {
+      console.log('✅ WhatsApp configuré');
+    }
   }
 
   static getInstance(): NotificationService {
@@ -73,12 +99,27 @@ export class NotificationService {
 
     const emailConfig = this.buildEmailTemplate(payload);
     
-    // TODO: Implémenter avec SendGrid
-    // const sgMail = require('@sendgrid/mail');
-    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    // await sgMail.send(emailConfig);
-
-    console.log('📧 Email envoyé:', emailConfig.to);
+    try {
+      if (this.emailTransporter) {
+        // Utiliser nodemailer (Gmail SMTP)
+        await this.emailTransporter.sendMail({
+          from: `"TinaBoutique" <${process.env.SMTP_USER}>`,
+          to: emailConfig.to,
+          subject: emailConfig.subject,
+          html: emailConfig.html
+        });
+        console.log('✅ Email envoyé via SMTP:', emailConfig.to);
+      } else if (process.env.SENDGRID_API_KEY) {
+        // TODO: Implémenter avec SendGrid si configuré
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+        await sgMail.send(emailConfig);
+        console.log('✅ Email envoyé via SendGrid:', emailConfig.to);
+      }
+    } catch (error) {
+      console.error('❌ Erreur envoi email:', error);
+      throw error;
+    }
   }
 
   /**
