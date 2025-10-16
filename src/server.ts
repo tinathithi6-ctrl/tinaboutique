@@ -16,6 +16,7 @@ import { ActivityLogger, ActionTypes } from './services/ActivityLogger';
 import { CurrencyService } from './services/CurrencyService';
 import { notificationService } from './services/NotificationService';
 import { injectActivityLogger, autoTrackMiddleware, logAction } from './middleware/trackingMiddleware';
+import { validatePassword as validatePasswordPolicy, PASSWORD_POLICY } from './utils/passwordPolicy';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -53,13 +54,24 @@ console.log('🌐 CORS - Origines autorisées:', allowedOrigins);
 // --- MIDDLEWARES DE SÉCURITÉ ---
 
 // Rate limiting pour les tentatives d'authentification
-// ⚠️ DÉSACTIVÉ EN DEV - RÉACTIVER EN PRODUCTION
+// 🔒 SÉCURITÉ RENFORCÉE: 5 tentatives en 15 minutes (production)
 const authLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute (réduit pour dev)
-  max: 50, // 50 tentatives (augmenté pour dev)
-  message: { error: 'Trop de tentatives de connexion. Réessayez dans 1 minute.' },
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: process.env.NODE_ENV === 'production' ? 5 : 50, // 5 en prod, 50 en dev
+  message: { 
+    error: 'Trop de tentatives de connexion. Compte temporairement bloqué.',
+    retryAfter: '15 minutes'
+  },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip, // Bloquer par IP
+  handler: (req, res) => {
+    console.warn(`🚨 SÉCURITÉ: Rate limit dépassé - IP: ${req.ip} - Path: ${req.path}`);
+    res.status(429).json({
+      error: 'Trop de tentatives de connexion. Réessayez dans 15 minutes.',
+      retryAfter: 900 // secondes
+    });
+  }
 });
 
 // Rate limiting général

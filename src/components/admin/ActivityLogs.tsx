@@ -352,7 +352,7 @@ export const ActivityLogs = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-600">Navigateur</label>
-                  <p className="text-sm text-xs truncate" title={selectedLog.user_agent}>
+                  <p className="text-xs truncate" title={selectedLog.user_agent}>
                     {selectedLog.user_agent || 'N/A'}
                   </p>
                 </div>
