@@ -29,6 +29,7 @@ import Chatbot from "./components/Chatbot";
 import CategoryPage from "./pages/CategoryPage";
 import ProductAdmin from "./pages/admin/ProductAdmin";
 import CurrencyRatesAdmin from "./pages/admin/CurrencyRatesAdmin";
+import SettingsAdmin from "./pages/admin/SettingsAdmin";
 import Search from "./pages/Search";
 import SearchPage from "./pages/SearchPage";
 import WishlistPage from "./pages/WishlistPage";
@@ -89,6 +90,14 @@ function App() {
                         element={
                           <ProtectedRoute requireAdmin>
                             <CurrencyRatesAdmin />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/admin/settings"
+                        element={
+                          <ProtectedRoute requireAdmin>
+                            <SettingsAdmin />
                           </ProtectedRoute>
                         }
                       />

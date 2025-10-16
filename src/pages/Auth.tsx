@@ -206,14 +206,21 @@ const Auth = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">{t("auth.labels.phone")}</Label>
+                  <Label htmlFor="phone" className="flex items-center gap-2">
+                    {t("auth.labels.phone")}
+                    <span className="text-xs text-gray-500">(Optionnel)</span>
+                  </Label>
                   <Input
                     id="phone"
                     type="tel"
+                    placeholder="+33612345678"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     maxLength={20}
                   />
+                  <p className="text-xs text-gray-600">
+                    📱 Recevez des notifications WhatsApp (confirmations, tracking)
+                  </p>
                 </div>
               </>
             )}

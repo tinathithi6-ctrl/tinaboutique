@@ -16,7 +16,8 @@ import { AdminOrders } from "@/components/admin/AdminOrders";
 import { AdminUsers } from "@/components/admin/AdminUsers";
 import { AdminAnalytics } from "@/components/admin/AdminAnalytics";
 import { ActivityLogs } from "@/components/admin/ActivityLogs";
-import { LayoutDashboard, Package, FolderTree, ShoppingCart, Users, LogOut, Search, BarChart3, Activity } from "lucide-react";
+import SettingsAdmin from "./admin/SettingsAdmin";
+import { LayoutDashboard, Package, FolderTree, ShoppingCart, Users, LogOut, Search, BarChart3, Activity, Settings } from "lucide-react";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -232,7 +233,7 @@ const Admin = () => {
       </Card>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             {t("admin.tabs.dashboard")}
@@ -260,6 +261,10 @@ const Admin = () => {
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             {t("admin.tabs.users")}
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Paramètres
           </TabsTrigger>
         </TabsList>
 
@@ -289,6 +294,10 @@ const Admin = () => {
 
         <TabsContent value="users" className="mt-6">
           <AdminUsers />
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-6">
+          <SettingsAdmin />
         </TabsContent>
       </Tabs>
     </div>

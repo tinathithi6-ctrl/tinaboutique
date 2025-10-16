@@ -1683,6 +1683,95 @@ app.get('/api/orders/:id/tracking', authenticateToken, async (req, res) => {
   }
 });
 
+// 🔧 ADMIN: Récupérer les paramètres du site
+app.get('/api/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM site_settings ORDER BY setting_key');
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Erreur récupération settings:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// 🔧 ADMIN: Mettre à jour les paramètres du site
+app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = (req as any).user.userId;
+    const settings = req.body;
+
+    // Mettre à jour chaque paramètre
+    for (const [key, value] of Object.entries(settings)) {
+      const stringValue = typeof value === 'boolean' ? String(value) : String(value);
+      
+      await pool.query(`
+        INSERT INTO site_settings (setting_key, setting_value, updated_by, updated_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (setting_key) 
+        DO UPDATE SET setting_value = $2, updated_by = $3, updated_at = NOW()
+      `, [key, stringValue, userId]);
+    }
+
+    // Vérifier si les services sont configurés
+    const sendgridConfigured = !!(process.env.SENDGRID_API_KEY);
+    const twilioConfigured = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
+
+    await pool.query(`
+      UPDATE site_settings 
+      SET setting_value = $1 
+      WHERE setting_key = 'sendgrid_configured'
+    `, [String(sendgridConfigured)]);
+
+    await pool.query(`
+      UPDATE site_settings 
+      SET setting_value = $1 
+      WHERE setting_key = 'twilio_configured'
+    `, [String(twilioConfigured)]);
+
+    const result = await pool.query('SELECT * FROM site_settings ORDER BY setting_key');
+    res.json({ message: 'Paramètres enregistrés', settings: result.rows });
+  } catch (error) {
+    console.error('Erreur mise à jour settings:', error);
+    res.status(500).json({ error: 'Erreur interne du serveur.' });
+  }
+});
+
+// 📱 ADMIN: Tester l'envoi WhatsApp
+app.post('/api/admin/test-whatsapp', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { to } = req.body;
+
+    if (!to) {
+      return res.status(400).json({ error: 'Numéro destinataire requis' });
+    }
+
+    // Vérifier configuration Twilio
+    if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
+      return res.status(400).json({ 
+        error: 'Twilio non configuré. Ajoutez TWILIO_ACCOUNT_SID et TWILIO_AUTH_TOKEN dans les variables d\'environnement.' 
+      });
+    }
+
+    // Envoyer message de test
+    await notificationService.send({
+      phone: to,
+      templateName: 'new_arrivals',
+      data: {
+        description: 'Test de configuration WhatsApp Business - TinaBoutique',
+        shopLink: process.env.FRONTEND_URL || 'https://sparkling-biscotti-defcce.netlify.app'
+      },
+      channels: ['whatsapp']
+    });
+
+    res.json({ message: 'Message de test envoyé avec succès !' });
+  } catch (error: any) {
+    console.error('Erreur test WhatsApp:', error);
+    res.status(500).json({ 
+      error: error.message || 'Erreur lors de l\'envoi du test WhatsApp' 
+    });
+  }
+});
+
 // 📢 ADMIN: Envoyer une notification broadcast (soldes, nouveautés)
 app.post('/api/admin/broadcast', authenticateToken, requireAdmin, async (req, res) => {
   try {
