@@ -1,18 +1,11 @@
 import { ShoppingCart, Heart, Eye } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import apiFetch from '@/lib/api';
+import { ProductService, Product } from '@/services/productService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useCart } from '@/contexts/CartContext';
 
-interface Product {
-  id: number;
-  name: string;
-  price_eur: number;
-  images: string[];
-  // Les autres champs ne sont pas utilisés directement ici mais sont disponibles
-}
 
 const FeaturedProducts = () => {
   const navigate = useNavigate();
@@ -22,14 +15,14 @@ const FeaturedProducts = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+  const [hoveredProduct, setHoveredProduct] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const data = await apiFetch('/api/products');
+        const data = await ProductService.getAllProducts();
         // On ne prend que les 8 premiers produits pour la page d'accueil
-        setProducts(Array.isArray(data) ? data.slice(0, 8) : []);
+        setProducts(data.slice(0, 8));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
       } finally {
@@ -40,9 +33,9 @@ const FeaturedProducts = () => {
     fetchProducts();
   }, []);
 
-const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product) => {
     addToCart({
-      id: product.id.toString(),
+      id: String(product.id),
       name: product.name,
       price: Number(product.price_eur || 0),
       image: product.images[0] || '/placeholder.svg',
@@ -52,7 +45,7 @@ const handleAddToCart = (product: Product) => {
       title: "Produit ajouté",
       description: `${product.name} a été ajouté à votre panier.`,
     });
-    
+
     if (!user) {
       toast({
         title: "Astuce",
@@ -67,9 +60,8 @@ const handleAddToCart = (product: Product) => {
         {[1, 2, 3, 4, 5].map((star) => (
           <svg
             key={star}
-            className={`w-4 h-4 ${
-              star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
-            }`}
+            className={`w-4 h-4 ${star <= rating ? 'text-yellow-400 fill-current' : 'text-gray-300'
+              }`}
             viewBox="0 0 20 20"
           >
             <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
@@ -130,11 +122,10 @@ const handleAddToCart = (product: Product) => {
 
               {/* Quick Actions */}
               <div
-                className={`absolute top-3 right-3 z-10 flex flex-col gap-2 transition-all duration-300 ${
-                  hoveredProduct === product.id
-                    ? 'opacity-100 translate-x-0'
-                    : 'opacity-0 translate-x-4'
-                }`}
+                className={`absolute top-3 right-3 z-10 flex flex-col gap-2 transition-all duration-300 ${hoveredProduct === product.id
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 translate-x-4'
+                  }`}
               >
                 <button className="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-gold hover:text-white transition-colors">
                   <Heart className="w-5 h-5" />
@@ -177,11 +168,10 @@ const handleAddToCart = (product: Product) => {
                 {/* Add to Cart Button */}
                 <button
                   onClick={() => handleAddToCart(product)}
-                  className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${
-                    hoveredProduct === product.id
-                      ? 'bg-gold text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`w-full py-3 rounded-lg font-semibold transition-all duration-300 flex items-center justify-center gap-2 ${hoveredProduct === product.id
+                    ? 'bg-gold text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <ShoppingCart className="w-5 h-5" />
                   Ajouter au Panier
