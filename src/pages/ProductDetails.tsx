@@ -12,21 +12,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-toastify';
 import { useState, useEffect } from 'react';
 import { useCurrency } from '@/contexts/CurrencyContext';
-import apiFetch from '@/lib/api';
+import { ProductService, Product } from '@/services/productService';
 
-// Définition des types pour les données de l'API
-interface ApiProduct {
-  id: number;
-  name: string;
-  description: string;
-  category_id: number;
-  price_eur: number;
-  price_usd: number;
-  price_cdf: number;
-  stock_quantity: number;
-  images: string[];
-  is_active: boolean;
-}
+// Interface Product importée
 
 const ProductDetails = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,7 +22,7 @@ const ProductDetails = () => {
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { format } = useCurrency();
-  const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +30,9 @@ const ProductDetails = () => {
     const fetchProduct = async () => {
       setLoading(true);
       try {
-        const data = await apiFetch(`/api/products/${id}`) as any;
+        if (!id) return;
+        const data = await ProductService.getProductById(id);
+        if (!data) throw new Error("Produit non trouvé");
         setProduct(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
@@ -57,7 +47,7 @@ const ProductDetails = () => {
   const handleAddToCart = (productData: { id: string; name: string; price: number; image: string; }, quantity = 1) => {
     addToCart(productData, quantity);
     toast.success(`${quantity} x ${productData.name} ajouté au panier !`);
-    
+
     if (!user) {
       toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
     }
@@ -143,7 +133,7 @@ const ProductDetails = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
-      
+
       {/* Breadcrumb */}
       <div className="bg-white border-b border-gray-200 py-4">
         <div className="container mx-auto px-4">
@@ -192,7 +182,7 @@ const ProductDetails = () => {
                 handleAddToCart({
                   id: String(product.id),
                   name: product.name,
-                    price: product.price_eur,
+                  price: product.price_eur,
                   image: product.images[0]
                 }, quantity);
               }}
@@ -251,7 +241,7 @@ const ProductDetails = () => {
                       <span className="text-lg text-gray-400 line-through">{relatedProduct.oldPrice}€</span>
                     )}
                   </div>
-                  <button 
+                  <button
                     onClick={() => {
                       handleAddToCart({
                         id: relatedProduct.id,
@@ -273,7 +263,7 @@ const ProductDetails = () => {
       </div>
 
       <Footer />
-      
+
       <ToastContainer
         position="bottom-right"
         autoClose={3000}

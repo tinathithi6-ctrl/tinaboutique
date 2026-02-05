@@ -8,42 +8,15 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-toastify";
 import { useCurrency } from '@/contexts/CurrencyContext';
-import apiFetch from '@/lib/api';
-
-// Définition des types pour les données de l'API
-interface ApiProduct {
-  id: number;
-  name: string;
-  description: string;
-  category_id: number;
-  price_eur: number;
-  price_usd: number;
-  price_cdf: number;
-  stock_quantity: number;
-  images: string[];
-  is_active: boolean;
-  pricing?: {
-    originalPrice: number;
-    finalPrice: number;
-    discountApplied: boolean;
-    discountType?: string;
-    discountAmount: number;
-    currency: string;
-  };
-}
-
-interface ApiCategory {
-  id: number;
-  name: string;
-}
+import { ProductService, CategoryService, Product, Category } from '@/services/productService';
 
 const Shop = () => {
   const { t } = useTranslation();
   const { addToCart } = useCart();
   const { user } = useAuth();
   const { format } = useCurrency();
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortOrder, setSortOrder] = useState("default");
@@ -53,31 +26,15 @@ const Shop = () => {
       setIsLoading(true);
       try {
         const [productsData, categoriesData] = await Promise.all([
-          apiFetch('/api/products'),
-          apiFetch('/api/categories')
+          ProductService.getAllProducts(),
+          CategoryService.getAllCategories()
         ]);
 
-        // Set products
-        if (Array.isArray(productsData)) {
-          setProducts(productsData);
-        } else if (productsData && Array.isArray((productsData as any).rows)) {
-          setProducts((productsData as any).rows);
-        } else {
-          console.warn('fetchProducts: unexpected response shape', productsData);
-          setProducts([]);
-        }
-
-        // Set categories
-        if (Array.isArray(categoriesData)) {
-          setCategories(categoriesData);
-        } else if (categoriesData && Array.isArray((categoriesData as any).rows)) {
-          setCategories((categoriesData as any).rows);
-        } else {
-          console.warn('fetchCategories: unexpected response shape', categoriesData);
-          setCategories([]);
-        }
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
+        setProducts(productsData);
+        setCategories(categoriesData);
+      } catch (err: any) {
+        console.error("Failed to fetch data:", err);
+        toast.error("Impossible de charger les produits. Vérifiez votre connexion.");
         setProducts([]);
         setCategories([]);
       } finally {
@@ -101,7 +58,7 @@ const Shop = () => {
 
     // Filtering
     if (selectedCategory !== "all") {
-      filtered = filtered.filter(p => p.category_id === Number(selectedCategory));
+      filtered = filtered.filter(p => String(p.category_id) === selectedCategory);
     }
 
     // Sorting
@@ -128,7 +85,7 @@ const Shop = () => {
     return filtered;
   }, [products, selectedCategory, sortOrder]);
 
-  const handleAddToCart = (product: ApiProduct) => {
+  const handleAddToCart = (product: Product) => {
     addToCart({
       id: String(product.id),
       name: product.name,
@@ -136,7 +93,7 @@ const Shop = () => {
       image: product.images?.[0] || '/placeholder.svg'
     }, 1);
     toast.success(`${product.name} ajouté au panier !`);
-    
+
     if (!user) {
       toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
     }
@@ -217,11 +174,11 @@ const Shop = () => {
                 key={`product-${product.id}`}
                 image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
-                category={getCategoryName(product.category_id)}
+                category={getCategoryName(Number(product.category_id))}
                 price={format(Number(product.pricing?.finalPrice || product.price_eur))}
                 originalPrice={product.pricing?.discountApplied ? format(Number(product.pricing.originalPrice)) : undefined}
                 discountApplied={product.pricing?.discountApplied || false}
-                discountType={product.pricing?.discountType}
+                discountType={product.pricing?.discountApplied ? 'percentage' : undefined}
                 onAddToCart={() => handleAddToCart(product)}
               />
             ))

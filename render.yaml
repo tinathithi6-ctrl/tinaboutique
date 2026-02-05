@@ -1,0 +1,28 @@
+# render.yaml - Configuration pour déployer le backend sur Render
+# Ce fichier configure automatiquement le service web
+
+services:
+  - type: web
+    name: tinaboutique-api
+    runtime: node
+    repo: https://github.com/tinathithi6-ctrl/tinaboutique
+    region: frankfurt  # Plus proche de l'Afrique
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false  # À configurer manuellement dans Render
+      - key: JWT_SECRET
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://tinaboutique-three.vercel.app

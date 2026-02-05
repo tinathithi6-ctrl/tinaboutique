@@ -4,53 +4,26 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { ChevronRight } from 'lucide-react';
-import apiFetch from '@/lib/api';
+import { ProductService, CategoryService, Product, Category } from '@/services/productService';
 import { Link } from 'react-router-dom';
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "react-toastify";
 
-// Définition des types pour les données de l'API
-interface ApiProduct {
-  id: number;
-  name: string;
-  description: string;
-  category_id: number;
-  price_eur: number;
-  price_usd: number;
-  price_cdf: number;
-  stock_quantity: number;
-  images: string[];
-  is_active: boolean;
-  pricing?: {
-    originalPrice: number;
-    finalPrice: number;
-    discountApplied: boolean;
-    discountType?: string;
-    discountAmount: number;
-    currency: string;
-  };
-}
-
-interface ApiCategory {
-  id: number;
-  name: string;
-}
-
 const CategoryPage = () => {
   const { name } = useParams<{ name: string }>();
   const { addToCart } = useCart();
   const { user } = useAuth();
-  const [products, setProducts] = useState<ApiProduct[]>([]);
-  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState("default");
 
   const fetchProducts = async () => {
     try {
-        const data = await apiFetch('/api/products');
-        setProducts(Array.isArray(data) ? data : []);
+      const data = await ProductService.getAllProducts();
+      setProducts(data);
     } catch (error) {
       console.error("Failed to fetch products:", error);
     }
@@ -58,8 +31,8 @@ const CategoryPage = () => {
 
   const fetchCategories = async () => {
     try {
-        const data = await apiFetch('/api/categories');
-        setCategories(Array.isArray(data) ? data : []);
+      const data = await CategoryService.getAllCategories();
+      setCategories(data);
     } catch (error) {
       console.error("Failed to fetch categories:", error);
     }
@@ -79,7 +52,7 @@ const CategoryPage = () => {
 
   const getCategoryName = (categoryId: number | null) => {
     if (!categoryId || !categories) return 'Autre';
-    const category = categories.find((cat) => cat.id === categoryId);
+    const category = categories.find((cat) => String(cat.id) === String(categoryId));
     return category?.name || 'Autre';
   };
 
@@ -89,7 +62,7 @@ const CategoryPage = () => {
   const filteredAndSortedProducts = useMemo(() => {
     if (!products || !categoryId) return [];
 
-    let filtered = products.filter(p => p.category_id === categoryId);
+    let filtered = products.filter(p => String(p.category_id) === String(categoryId));
 
     // Sorting
     switch (sortOrder) {
@@ -114,7 +87,7 @@ const CategoryPage = () => {
     return filtered;
   }, [products, categoryId, sortOrder]);
 
-const handleAddToCart = (product: ApiProduct) => {
+  const handleAddToCart = (product: Product) => {
     addToCart({
       id: String(product.id),
       name: product.name,
@@ -122,7 +95,7 @@ const handleAddToCart = (product: ApiProduct) => {
       image: product.images?.[0] || '/placeholder.svg'
     }, 1);
     toast.success(`${product.name} ajouté au panier !`);
-    
+
     if (!user) {
       toast.info('Connectez-vous pour sauvegarder votre panier entre sessions.');
     }
@@ -196,11 +169,11 @@ const handleAddToCart = (product: ApiProduct) => {
                 key={`product-${product.id}`}
                 image={product.images[0] || "/placeholder.svg"}
                 name={product.name}
-                category={getCategoryName(product.category_id)}
+                category={getCategoryName(Number(product.category_id))}
                 price={Number(product.pricing?.finalPrice || product.price_eur).toFixed(0)}
                 originalPrice={product.pricing?.discountApplied ? Number(product.pricing.originalPrice).toFixed(0) : undefined}
                 discountApplied={product.pricing?.discountApplied || false}
-                discountType={product.pricing?.discountType}
+                discountType={product.pricing?.discountApplied ? 'percentage' : undefined}
                 onAddToCart={() => handleAddToCart(product)}
               />
             ))
