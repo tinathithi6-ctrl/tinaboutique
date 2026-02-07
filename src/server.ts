@@ -43,10 +43,10 @@ console.log('ℹ️ Services initialisés.');
 // Configuration des origines CORS autorisées
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
-      'https://sparkling-biscotti-defcce.netlify.app',
-      'https://tinaboutique.onrender.com',
-      process.env.FRONTEND_URL
-    ].filter(Boolean) // Enlever les undefined
+    'https://sparkling-biscotti-defcce.netlify.app',
+    'https://tinaboutique.onrender.com',
+    process.env.FRONTEND_URL
+  ].filter(Boolean) // Enlever les undefined
   : ['http://localhost:8081', 'http://localhost:8080', 'http://10.235.227.207:8080'];
 
 console.log('🌐 CORS - Origines autorisées:', allowedOrigins);
@@ -58,13 +58,13 @@ console.log('🌐 CORS - Origines autorisées:', allowedOrigins);
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: process.env.NODE_ENV === 'production' ? 5 : 50, // 5 en prod, 50 en dev
-  message: { 
+  message: {
     error: 'Trop de tentatives de connexion. Compte temporairement bloqué.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip, // Bloquer par IP
+  // keyGenerator: (req) => req.ip, // Utilise le défaut (req.ip) pour éviter les erreurs IPv6
   handler: (req, res) => {
     console.warn(`🚨 SÉCURITÉ: Rate limit dépassé - IP: ${req.ip} - Path: ${req.path}`);
     res.status(429).json({
@@ -87,11 +87,11 @@ const generalLimiter = rateLimit({
 declare global {
   namespace Express {
     interface Request {
-        user?: {
-          id: string;
-          role: string;
-          email?: string;
-        };
+      user?: {
+        id: string;
+        role: string;
+        email?: string;
+      };
     }
   }
 }
@@ -171,19 +171,19 @@ const corsOptions = {
     if (!origin) {
       return callback(null, true);
     }
-    
+
     // Autoriser si l'origine est dans la liste blanche
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-    
+
     // Autoriser tous les domaines de prévisualisation Netlify (avec hash)
-    if (origin.includes('--sparkling-biscotti-defcce.netlify.app') || 
-        origin.endsWith('.netlify.app')) {
+    if (origin.includes('--sparkling-biscotti-defcce.netlify.app') ||
+      origin.endsWith('.netlify.app')) {
       console.log('✅ Domaine Netlify autorisé:', origin);
       return callback(null, true);
     }
-    
+
     // Bloquer les autres
     console.warn('❌ Domaine bloqué par CORS:', origin);
     return callback(new Error('Not allowed by CORS'));
@@ -426,10 +426,10 @@ function calculateProductPrice(product: any, quantity: number = 1) {
 
   // Vérifier les promotions actives
   if (product.sale_price_eur &&
-      product.sale_start_date &&
-      product.sale_end_date &&
-      new Date() >= new Date(product.sale_start_date) &&
-      new Date() <= new Date(product.sale_end_date)) {
+    product.sale_start_date &&
+    product.sale_end_date &&
+    new Date() >= new Date(product.sale_start_date) &&
+    new Date() <= new Date(product.sale_end_date)) {
     finalPrice = product.sale_price_eur;
     discountApplied = true;
     discountType = 'promotion';
@@ -438,8 +438,8 @@ function calculateProductPrice(product: any, quantity: number = 1) {
 
   // Appliquer les réductions par quantité si applicable
   if (product.bulk_discount_threshold &&
-      product.bulk_discount_percentage &&
-      quantity >= product.bulk_discount_threshold) {
+    product.bulk_discount_percentage &&
+    quantity >= product.bulk_discount_threshold) {
     const bulkDiscount = (finalPrice * product.bulk_discount_percentage) / 100;
     finalPrice = finalPrice - bulkDiscount;
     discountApplied = true;
@@ -797,6 +797,104 @@ app.get('/api/admin/reports/top-products', async (req, res) => {
     res.status(500).json({ error: 'Erreur interne du serveur.' });
   }
 });
+
+// --- API CHATBOT (INTELLIGENCE ARTIFICIELLE) ---
+
+app.post('/api/chatbot', async (req, res) => {
+  const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'Clé API Gemini manquante sur le serveur' });
+  }
+
+  const { messages } = req.body;
+  const lastMessage = messages?.length ? messages[messages.length - 1]?.text ?? '' : '';
+
+  if (!lastMessage) {
+    return res.json({ reply: "Je n'ai pas reçu de message." });
+  }
+
+  try {
+    // 1. Recherche de contexte (Produits)
+    const searchTerm = lastMessage.split(' ').slice(0, 5).join(' ');
+    const productQuery = `
+      SELECT name, description, price_eur, stock_quantity 
+      FROM products 
+      WHERE is_active = true 
+      AND (name ILIKE $1 OR description ILIKE $1)
+      LIMIT 3
+    `;
+    const productsResult = await pool.query(productQuery, [`%${searchTerm}%`]);
+    const products = productsResult.rows;
+
+    // 2. Recherche de contexte (Catégories)
+    let categories = [];
+    const categoryKeywords = ['catégories', 'articles', 'types', 'sections', 'gamme', 'chaussures', 'talons'];
+    const containsCategoryKeyword = categoryKeywords.some(keyword => lastMessage.toLowerCase().includes(keyword));
+
+    if (containsCategoryKeyword) {
+      const allCategories = await pool.query('SELECT name, description FROM categories');
+      categories = allCategories.rows;
+    } else {
+      const categoryQuery = `
+        SELECT name, description 
+        FROM categories 
+        WHERE name ILIKE $1 OR description ILIKE $1
+        LIMIT 3
+      `;
+      const categoriesResult = await pool.query(categoryQuery, [`%${searchTerm}%`]);
+      categories = categoriesResult.rows;
+    }
+
+    // 3. Prompt pour Gemini
+    const systemPrompt = `Tu es un assistant clientèle amical, expert en mode pour 'Boutique Tina la New-Yorkaise'.
+    Ton objectif est de guider les clients et répondre à leurs questions sur nos produits.
+    
+    CONTEXTE:
+    Produits pertinents: ${JSON.stringify(products)}
+    Catégories pertinentes: ${JSON.stringify(categories)}
+    
+    HISTORIQUE:
+    ${JSON.stringify(messages)}
+    
+    Réponds poliment et utilement au dernier message. Sois concis.`;
+
+    // 4. Appel API Gemini
+    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    const geminiResponse = await fetch(geminiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: systemPrompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 300,
+        }
+      })
+    });
+
+    if (!geminiResponse.ok) {
+      const errText = await geminiResponse.text();
+      throw new Error(`Gemini API Error: ${errText}`);
+    }
+
+    const geminiData = await geminiResponse.json();
+    const botResponse = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || "Désolé, je ne peux pas répondre pour le moment.";
+
+    // 5. Réponse
+    res.json({ reply: botResponse });
+
+  } catch (error: any) {
+    console.error('Erreur Chatbot:', error);
+    res.status(500).json({ reply: "Désolé, j'ai rencontré une erreur technique." });
+  }
+});
+
+// Port d'écoute
+app.listen(port, () => {
+  console.log(`🚀 Le serveur écoute sur le port ${port}`);
+});
+
 
 // Obtenir les statistiques de commandes par catégorie
 app.get('/api/admin/reports/orders-by-category', async (req, res) => {
@@ -1450,10 +1548,10 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     // TODO: Envoyer l'email avec le lien de réinitialisation
     // Pour l'instant, on retourne le token (à enlever en production!)
     const resetLink = `${process.env.FRONTEND_URL || 'https://sparkling-biscotti-defcce.netlify.app'}/reset-password?token=${resetToken}&email=${email}`;
-    
+
     console.log(`🔐 Lien de réinitialisation pour ${email}: ${resetLink}`);
 
-    res.json({ 
+    res.json({
       message: 'Si cet email existe, un lien de réinitialisation a été envoyé.',
       // TEMPORAIRE pour test - à enlever en production
       resetLink: process.env.NODE_ENV === 'development' ? resetLink : undefined
@@ -1520,8 +1618,8 @@ app.put('/api/admin/orders/:id/status', authenticateToken, requireAdmin, async (
 
     const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        error: 'Statut invalide. Statuts valides: ' + validStatuses.join(', ') 
+      return res.status(400).json({
+        error: 'Statut invalide. Statuts valides: ' + validStatuses.join(', ')
       });
     }
 
@@ -1633,7 +1731,7 @@ app.get('/api/orders/:id/tracking', authenticateToken, async (req, res) => {
 
     // Créer l'historique de suivi
     const trackingHistory = [];
-    
+
     if (order.created_at) {
       trackingHistory.push({
         status: 'pending',
@@ -1685,8 +1783,8 @@ app.get('/api/orders/:id/tracking', authenticateToken, async (req, res) => {
       trackingNumber: order.tracking_number,
       carrier: order.carrier,
       trackingHistory,
-      estimatedDelivery: order.shipped_at ? 
-        new Date(new Date(order.shipped_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() : 
+      estimatedDelivery: order.shipped_at ?
+        new Date(new Date(order.shipped_at).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString() :
         null
     });
   } catch (error) {
@@ -1715,7 +1813,7 @@ app.post('/api/admin/settings', authenticateToken, requireAdmin, async (req, res
     // Mettre à jour chaque paramètre
     for (const [key, value] of Object.entries(settings)) {
       const stringValue = typeof value === 'boolean' ? String(value) : String(value);
-      
+
       await pool.query(`
         INSERT INTO site_settings (setting_key, setting_value, updated_by, updated_at)
         VALUES ($1, $2, $3, NOW())
@@ -1759,8 +1857,8 @@ app.post('/api/admin/test-whatsapp', authenticateToken, requireAdmin, async (req
 
     // Vérifier configuration Twilio
     if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-      return res.status(400).json({ 
-        error: 'Twilio non configuré. Ajoutez TWILIO_ACCOUNT_SID et TWILIO_AUTH_TOKEN dans les variables d\'environnement.' 
+      return res.status(400).json({
+        error: 'Twilio non configuré. Ajoutez TWILIO_ACCOUNT_SID et TWILIO_AUTH_TOKEN dans les variables d\'environnement.'
       });
     }
 
@@ -1778,8 +1876,8 @@ app.post('/api/admin/test-whatsapp', authenticateToken, requireAdmin, async (req
     res.json({ message: 'Message de test envoyé avec succès !' });
   } catch (error: any) {
     console.error('Erreur test WhatsApp:', error);
-    res.status(500).json({ 
-      error: error.message || 'Erreur lors de l\'envoi du test WhatsApp' 
+    res.status(500).json({
+      error: error.message || 'Erreur lors de l\'envoi du test WhatsApp'
     });
   }
 });
@@ -2590,17 +2688,17 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
 app.get('/api/admin/activity-logs', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { limit = '50', offset = '0', actionType, userId } = req.query;
-    
+
     const filters = {
       limit: parseInt(limit as string),
       offset: parseInt(offset as string),
       actionType: actionType as string || undefined,
       userId: userId ? parseInt(userId as string) : undefined
     };
-    
+
     const logs = await activityLogger.getAllActivities(filters);
     const totalResult = await pool.query('SELECT COUNT(*) FROM activity_logs');
-    
+
     res.json({
       logs,
       total: parseInt(totalResult.rows[0].count)
@@ -2859,7 +2957,7 @@ app.put('/api/user/currency', authenticateToken, async (req, res) => {
   try {
     const { currency } = req.body;
     const success = await currencyService.setUserPreferredCurrency(parseInt(req.user!.id), currency);
-    
+
     if (success) {
       await logAction(req, 'CURRENCY_CHANGE', `Changement devise vers ${currency}`, { currency });
       res.json({ success: true, currency });
@@ -2911,7 +3009,7 @@ app.post('/api/convert-price', async (req, res) => {
 app.get('/api/admin/sales-by-day', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const days = parseInt(req.query.days as string) || 7;
-    
+
     const result = await pool.query(`
       SELECT 
         TO_CHAR(created_at, 'Dy') as name,
@@ -2923,7 +3021,7 @@ app.get('/api/admin/sales-by-day', authenticateToken, requireAdmin, async (req, 
       GROUP BY DATE(created_at), TO_CHAR(created_at, 'Dy')
       ORDER BY DATE(created_at)
     `);
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Erreur ventes par jour:', error);
@@ -2947,7 +3045,7 @@ app.get('/api/admin/sales-by-category', authenticateToken, requireAdmin, async (
       GROUP BY c.name
       ORDER BY value DESC
     `);
-    
+
     res.json(result.rows);
   } catch (error) {
     console.error('Erreur ventes par catégorie:', error);
@@ -2967,24 +3065,24 @@ app.get('/api/admin/payment-methods-stats', authenticateToken, requireAdmin, asy
       AND payment_method IS NOT NULL
       GROUP BY payment_method
     `);
-    
+
     const total = result.rows.reduce((sum, row) => sum + parseInt(row.count), 0);
-    
+
     const colors = {
       'card': '#3B82F6',
       'mobile_money': '#10B981',
       'paypal': '#F59E0B',
       'bank_transfer': '#8B5CF6'
     };
-    
+
     const formatted = result.rows.map(row => ({
       name: row.name === 'card' ? 'Carte Bancaire' :
-            row.name === 'mobile_money' ? 'Mobile Money' :
-            row.name === 'paypal' ? 'PayPal' : row.name,
+        row.name === 'mobile_money' ? 'Mobile Money' :
+          row.name === 'paypal' ? 'PayPal' : row.name,
       value: Math.round((parseInt(row.count) / total) * 100),
       color: colors[row.name as keyof typeof colors] || '#6B7280'
     }));
-    
+
     res.json(formatted);
   } catch (error) {
     console.error('Erreur stats paiements:', error);
@@ -2996,7 +3094,7 @@ app.get('/api/admin/payment-methods-stats', authenticateToken, requireAdmin, asy
 app.get('/api/admin/recent-orders', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 5;
-    
+
     const result = await pool.query(`
       SELECT 
         id,
@@ -3008,19 +3106,19 @@ app.get('/api/admin/recent-orders', authenticateToken, requireAdmin, async (req,
       ORDER BY created_at DESC
       LIMIT $1
     `, [limit]);
-    
+
     const formatted = result.rows.map(row => ({
       id: row.id.toString().slice(0, 8),
       customer: row.customer || 'Client anonyme',
       amount: parseFloat(row.amount),
       status: row.status === 'completed' ? 'Livrée' :
-              row.status === 'pending' ? 'En cours' :
-              row.status === 'paid' ? 'Payée' : row.status,
-      time: row.minutes_ago < 60 
+        row.status === 'pending' ? 'En cours' :
+          row.status === 'paid' ? 'Payée' : row.status,
+      time: row.minutes_ago < 60
         ? `${Math.floor(row.minutes_ago)} min`
         : `${Math.floor(row.minutes_ago / 60)} h`
     }));
-    
+
     res.json(formatted);
   } catch (error) {
     console.error('Erreur dernières commandes:', error);
@@ -3032,7 +3130,7 @@ app.get('/api/admin/recent-orders', authenticateToken, requireAdmin, async (req,
 app.get('/api/admin/top-products', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const limit = parseInt(req.query.limit as string) || 4;
-    
+
     const result = await pool.query(`
       SELECT 
         p.name,
@@ -3046,7 +3144,7 @@ app.get('/api/admin/top-products', authenticateToken, requireAdmin, async (req, 
       ORDER BY revenue DESC
       LIMIT $1
     `, [limit]);
-    
+
     res.json(result.rows.map(row => ({
       name: row.name,
       sales: parseInt(row.sales),
@@ -3058,8 +3156,12 @@ app.get('/api/admin/top-products', authenticateToken, requireAdmin, async (req, 
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Le serveur écoute sur le port ${port}`);
-  console.log(`📊 Système de traçabilité activé`);
-  console.log(`💱 Multi-devises EUR/USD/CDF activé`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(port, () => {
+    console.log(`🚀 Le serveur écoute sur le port ${port}`);
+    console.log(`📊 Système de traçabilité activé`);
+    console.log(`💱 Multi-devises EUR/USD/CDF activé`);
+  });
+}
+
+export default app;

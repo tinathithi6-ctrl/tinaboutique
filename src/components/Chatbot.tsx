@@ -24,22 +24,23 @@ const Chatbot = () => {
     setIsLoading(true);
 
     try {
-      if (!supabase) {
-        throw new Error("Chatbot not available");
-      }
-
-      const { data, error } = await supabase.functions.invoke("chatbot-handler", {
-        body: { messages: newMessages },
+      // Utilisation de l'API Node.js backend au lieu de Supabase Edge Function
+      const response = await fetch('/api/chatbot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
       });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Network response was not ok');
+
+      const data = await response.json();
 
       const botMessage = { from: "bot", text: data.reply };
       setMessages([...newMessages, botMessage]);
     } catch (error: any) {
-      const errorMessage = { from: "bot", text: "Désolé, le service de chat n'est pas disponible pour le moment." };
+      console.error("Error invoking Chatbot API:", error);
+      const errorMessage = { from: "bot", text: "Désolé, je ne peux pas répondre pour le moment. Veuillez réessayer plus tard." };
       setMessages([...newMessages, errorMessage]);
-      console.error("Error invoking Supabase function:", error);
     } finally {
       setIsLoading(false);
     }
@@ -59,7 +60,7 @@ const Chatbot = () => {
           <DialogHeader>
             <DialogTitle>Service Client</DialogTitle>
           </DialogHeader>
-          
+
           <ScrollArea className="flex-grow p-4 border-y">
             <div className="space-y-4">
               {messages.map((msg, index) => (
@@ -68,11 +69,10 @@ const Chatbot = () => {
                   className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
                 >
                   <div
-                    className={`max-w-xs rounded-lg px-4 py-2 text-sm ${
-                      msg.from === "user"
+                    className={`max-w-xs rounded-lg px-4 py-2 text-sm ${msg.from === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted"
-                    }`}
+                      }`}
                   >
                     {msg.text}
                   </div>
