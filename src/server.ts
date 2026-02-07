@@ -192,9 +192,17 @@ const corsOptions = {
 };
 
 // Configuration multer pour l'upload d'images
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Sur Vercel (production), on utilise /tmp car le système est en lecture seule
+const uploadsDir = process.env.NODE_ENV === 'production'
+  ? path.join('/tmp', 'uploads')
+  : path.join(process.cwd(), 'uploads');
+
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (error) {
+  console.warn('⚠️ Impossible de créer le dossier uploads (lecture seule ?):', error);
 }
 
 const storage = multer.diskStorage({
